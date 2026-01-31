@@ -1,6 +1,10 @@
 <Solution>
   <Folder Name="/Solution Items/">
     <File Path=".env" />
+    <File Path="Docker-Compose-Down.ps1" />
+    <File Path="Docker-Compose-Up.ps1" />
+    <File Path="LICENSE.txt" />
+    <File Path="README.md" />
     <File Path="src/Directory.Packages.props" />
   </Folder>
   <Project Path="docker-compose.dcproj">

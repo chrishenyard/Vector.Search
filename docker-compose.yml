@@ -1,6 +1,96 @@
 services:
   vector.search:
-    image: ${DOCKER_REGISTRY-}vectorsearch
+    image: ${DOCKER_REGISTRY-}vector.search
+    container_name: vector.search
     build:
       context: ./src
       dockerfile: Vector.Search/Dockerfile
+      args:
+        - AUTHORS=${AUTHORS}
+        - VERSION=${VERSION}
+        - TITLE=${TITLE}
+        - DESCRIPTION=${DESCRIPTION}
+        - BUILD_DATE=${BUILD_DATE}
+    ports:
+      - 9020:8081
+    networks:
+      - vector_search_network
+    depends_on:
+      seq:
+        condition: service_started
+      ollama:
+        condition: service_started
+      openwebui:
+        condition: service_started
+    user: "1654:1654"
+    volumes:
+      - logs:/app/logs/
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - 11434:11434
+    environment:
+      - OLLAMA_DEBUG=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_MAX_LOADED_MODELS=1
+    volumes:
+      - ollama:/root/.ollama
+    networks:
+      - vector_search_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    ports:
+      - 8080:8080
+    environment:
+      - ENV=dev
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      - ollama
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - vector_search_network
+    restart: always
+
+  seq:
+    image: datalust/seq:latest
+    ports:
+      - 5341:5341
+      - 8081:80
+    environment:
+      - ACCEPT_EULA=Y
+      - SEQ_FIRSTRUN_ADMINPASSWORD=${SEQ_FIRSTRUN_ADMINPASSWORD}
+    networks:
+      - vector_search_network
+    volumes:
+      - seq_data:/data
+    restart: always
+
+networks:
+  vector_search_network:
+    driver: bridge
+
+volumes:
+  logs:
+  seq_data:
+  ollama:
+  open-webui:
