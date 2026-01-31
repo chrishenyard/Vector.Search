@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".env" />
+    <File Path="src/Directory.Packages.props" />
+  </Folder>
+  <Project Path="src/Vector.Search/Vector.Search.csproj" />
+</Solution>
