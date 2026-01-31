@@ -1,0 +1,6 @@
+services:
+  vector.search:
+    image: ${DOCKER_REGISTRY-}vectorsearch
+    build:
+      context: ./src
+      dockerfile: Vector.Search/Dockerfile
