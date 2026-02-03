@@ -9,8 +9,8 @@ public class OllamaSettings
     [Url]
     public string Url { get; set; } = "http://localhost:11434";
     [Required]
-    public string VisionModel { get; set; } = null!;
     public int TimeoutFromMinutes { get; set; } = 5;
-    public int ContextWindowSize { get; set; } = 2048;
+    public int EmbeddingsContextWindowSize { get; set; } = 8192;
+    public int ChatContextWindowSize { get; set; } = 8192;
     public float Temperature { get; set; } = 0.8f;
 }

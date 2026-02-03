@@ -4,6 +4,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Qdrant.Client;
 using Vector.Search.Services;
 using Vector.Search.Settings;
 
@@ -65,6 +66,22 @@ public static class ServiceExtensions
 
     public static IServiceCollection AddServices(this IServiceCollection services, IConfiguration config)
     {
+        var isDevelopment = services
+            .BuildServiceProvider()
+            .GetRequiredService<IWebHostEnvironment>()
+            .IsDevelopment();
+
+        var qdrantSettings = config
+            .GetSection(QdrantSettings.SectionName)
+            .Get<QdrantSettings>()!;
+
+        var useHttps = !isDevelopment;
+
+        services.AddScoped(sp =>
+        {
+            return new QdrantClient(qdrantSettings.Url, https: useHttps);
+        });
+
         services.AddScoped<IOllamaClientFactory, OllamaClientFactory>();
         services.AddScoped(sp =>
         {

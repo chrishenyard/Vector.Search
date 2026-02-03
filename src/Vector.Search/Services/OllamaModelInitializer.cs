@@ -6,6 +6,7 @@ namespace Vector.Search.Services;
 
 public class OllamaModelInitializer(
     IServiceProvider serviceProvider,
+    IConfiguration cfg,
     ILogger<OllamaModelInitializer> logger,
     IOptions<OllamaSettings> options) : IHostedService
 {
@@ -15,41 +16,46 @@ public class OllamaModelInitializer(
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Initializing Ollama model: {Model}", _ollamaSettings.VisionModel);
+        var models = new List<string> { cfg["EMBEDDING_MODEL"]!, cfg["CHAT_MODEL"]! };
+        _logger.LogDebug("Configured models: {Models}", string.Join(", ", models));
 
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var ollamaClient = scope.ServiceProvider.GetRequiredService<OllamaApiClient>();
+            var clientModels = await ollamaClient.ListLocalModelsAsync(cancellationToken);
 
-            var models = await ollamaClient.ListLocalModelsAsync(cancellationToken);
-            var modelExists = models.Any(m => m.Name.Equals(_ollamaSettings.VisionModel, StringComparison.OrdinalIgnoreCase));
-
-            if (!modelExists)
+            foreach (var model in models)
             {
-                _logger.LogInformation("Model {Model} not found. Pulling model...", _ollamaSettings.VisionModel);
+                var modelExists = clientModels.Any(cm => cm.Name.Equals(model, StringComparison.OrdinalIgnoreCase));
 
-                await foreach (var status in ollamaClient.PullModelAsync(_ollamaSettings.VisionModel, cancellationToken))
+                if (!modelExists)
                 {
-                    if (status?.Status != null)
-                    {
-                        _logger.LogInformation("Pull status: {Status} - {Completed}/{Total}",
-                            status.Status,
-                            status.Completed,
-                            status.Total);
-                    }
-                }
+                    _logger.LogDebug("Model {Model} not found. Pulling model...", model);
 
-                _logger.LogInformation("Model {Model} pulled successfully", _ollamaSettings.VisionModel);
+                    await foreach (var status in ollamaClient.PullModelAsync(model, cancellationToken))
+                    {
+                        if (status?.Status != null)
+                        {
+                            _logger.LogDebug("Pull status: {Status} - {Completed}/{Total}",
+                                status.Status,
+                                status.Completed,
+                                status.Total);
+                        }
+                    }
+
+                    _logger.LogDebug("Model {Model} pulled successfully", model);
+                }
+                else
+                {
+                    _logger.LogDebug("Model {Model} already exists", model);
+                }
             }
-            else
-            {
-                _logger.LogInformation("Model {Model} already exists", _ollamaSettings.VisionModel);
-            }
+
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to initialize Ollama model: {Model}", _ollamaSettings.VisionModel);
+            _logger.LogError(ex, "Failed to initialize Ollama models");
         }
     }
 

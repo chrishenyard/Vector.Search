@@ -11,6 +11,15 @@ services:
         - TITLE=${TITLE}
         - DESCRIPTION=${DESCRIPTION}
         - BUILD_DATE=${BUILD_DATE}
+    environment:
+      OLLAMA_BASEURL: http://ollama:11434
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: code_chunks
+      EMBEDDING_MODEL: nomic-embed-text
+      CHAT_MODEL: llama3.1
+      REPO_ROOT: /repo
+    volumes:
+      - repo:/repo:ro
     ports:
       - 9020:8081
     networks:
@@ -101,7 +110,7 @@ services:
     configs:
       - source: qdrant_config    
     volumes:
-      - qdrant_storage:/qdrant/storage
+      - qdrant_data:/qdrant/storage
 
 networks:
   vector_search_network:
@@ -116,4 +125,5 @@ volumes:
   seq_data:
   ollama:
   open-webui:
-  qdrant_storage:
+  qdrant_data:
+  repo:
