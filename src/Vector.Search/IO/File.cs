@@ -1,12 +1,13 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 using Vector.Search.Models;
+using Vector.Search.Services;
 
 namespace Vector.Search.IO;
 
 public static class File
 {
-    public static IEnumerable<Chunk> ChunkFile(string fullPath, string repoRoot)
+    public static IEnumerable<CodeChunkRecord> ChunkFile(string fullPath, string repoRoot)
     {
         var relPath = Path.GetRelativePath(repoRoot, fullPath).Replace('\\', '/');
         var text = System.IO.File.ReadAllText(fullPath);
@@ -54,8 +55,16 @@ public static class File
             if (content.Length < 80) continue; // skip tiny noise
 
             var hash = ToSha256($"{relPath}:{s}:{e}:{content}");
-            var id = hash; // stable id
-            yield return new Chunk(id, relPath, s + 1, e + 1, language, content, hash);
+            yield return new CodeChunkRecord
+            {
+                Id = CodeVectorStore.StableGuidFromString(hash),
+                Path = relPath,
+                StartLine = s + 1,
+                EndLine = e + 1,
+                Language = language,
+                Content = content,
+                Hash = hash
+            };
         }
     }
 

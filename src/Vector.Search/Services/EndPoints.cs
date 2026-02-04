@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
+using Vector.Search.Models;
+using Vector.Search.Services;
 using Vector.Search.Settings;
 
 namespace AI.Receipts.Services;
@@ -69,6 +71,53 @@ public class EndPoints
             return Results.Ok(new { status = "healthy", models = models.Select(m => m.Name) });
         });
 
+        app.MapPost("/index", async (
+            IConfiguration cfg,
+            OllamaClient ollama,
+            CodeVectorStore vectorStore,
+            CancellationToken ct) =>
+        {
+            var repoRoot = cfg["REPO_ROOT"]!;
+
+            var files = Directory.EnumerateFiles(repoRoot, "*.*", SearchOption.AllDirectories)
+                .Where(p =>
+                    p.EndsWith(".cs") ||
+                    p.EndsWith(".json") ||
+                    p.EndsWith(".yml") || p.EndsWith(".yaml") ||
+                    p.EndsWith(".csproj") ||
+                    p.EndsWith(".props") || p.EndsWith(".targets") ||
+                    p.EndsWith(".md") ||
+                    p.EndsWith(".sql"))
+                .Where(p => !p.Contains("/bin/") && !p.Contains("/obj/"))
+                .ToList();
+
+            await vectorStore.EnsureCollectionAsync(ct);
+
+            int total = 0;
+            foreach (var file in files)
+            {
+                var chunks = Vector.Search.IO.File.ChunkFile(file, repoRoot).ToList();
+                if (chunks.Count == 0) continue;
+
+                foreach (var batch in chunks.Chunk(16))
+                {
+                    var records = new List<CodeChunkRecord>();
+
+                    foreach (var c in batch)
+                    {
+                        var embeddingsVector = await ollama.EmbedAsync($"{c.Path}\n{c.Content}", ct);
+
+                        c.Embedding = embeddingsVector;
+                        records.Add(c);
+                        total++;
+                    }
+
+                    await vectorStore.UpsertAsync(records, ct);
+                }
+            }
+
+            return Results.Ok(new { indexed = total });
+        });
 
         app.MapPost("/api/code", async (
             [FromForm] IFormFile file,

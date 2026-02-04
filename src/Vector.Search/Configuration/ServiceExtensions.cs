@@ -4,7 +4,6 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using Qdrant.Client;
 using Vector.Search.Services;
 using Vector.Search.Settings;
 
@@ -66,20 +65,13 @@ public static class ServiceExtensions
 
     public static IServiceCollection AddServices(this IServiceCollection services, IConfiguration config)
     {
-        var isDevelopment = services
-            .BuildServiceProvider()
-            .GetRequiredService<IWebHostEnvironment>()
-            .IsDevelopment();
+        var qdrantUrl = config["QDRANT_URL"]!;
 
-        var qdrantSettings = config
-            .GetSection(QdrantSettings.SectionName)
-            .Get<QdrantSettings>()!;
-
-        var useHttps = !isDevelopment;
+        services.AddQdrantVectorStore("qdrant");
 
         services.AddScoped(sp =>
         {
-            return new QdrantClient(qdrantSettings.Url, https: useHttps);
+            return new Qdrant.Client.QdrantClient(qdrantUrl, https: true);
         });
 
         services.AddScoped<IOllamaClientFactory, OllamaClientFactory>();
@@ -89,6 +81,8 @@ public static class ServiceExtensions
             return factory.CreateClient();
         });
 
+        services.AddScoped<OllamaClient>();
+        services.AddScoped<CodeVectorStore>();
         services.AddHostedService<OllamaModelInitializer>()
                 .AddDataProtection()
                 .PersistKeysToFileSystem(new DirectoryInfo("/app/DataProtectionKeys/"))
