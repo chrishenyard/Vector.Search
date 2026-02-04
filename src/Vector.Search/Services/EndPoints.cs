@@ -89,27 +89,48 @@ public class EndPoints
             await vectorStore.EnsureCollectionAsync(ct);
 
             int total = 0;
-            foreach (var file in files)
+
+            // Process files in parallel, but keep overall concurrency moderate
+            var parallelOptions = new ParallelOptions
+            {
+                CancellationToken = ct,
+                MaxDegreeOfParallelism = Environment.ProcessorCount
+            };
+
+            await Parallel.ForEachAsync(files, parallelOptions, async (file, token) =>
             {
                 var chunks = Vector.Search.IO.File.ChunkFile(file, repoRoot).ToList();
-                if (chunks.Count == 0) continue;
+                if (chunks.Count == 0)
+                {
+                    return;
+                }
 
+                // Process chunks in batches, but each batch is also parallelized
                 foreach (var batch in chunks.Chunk(16))
                 {
-                    var records = new List<CodeChunkRecord>();
-
-                    foreach (var c in batch)
+                    // Run embedding calls in parallel for this batch
+                    var embeddingTasks = batch.Select(async c =>
                     {
-                        var embeddingsVector = await ollama.EmbedAsync($"{c.Path}\n{c.Content}", ct);
+                        var embeddingsVector = await ollama.EmbedAsync($"{c.Path}\n{c.Content}", token);
+                        // clone with embedding to avoid mutating shared instances if reused
+                        return new CodeChunkRecord
+                        {
+                            Id = c.Id,
+                            Path = c.Path,
+                            Content = c.Content,
+                            Embedding = embeddingsVector,
+                        };
+                    }).ToList();
 
-                        c.Embedding = embeddingsVector;
-                        records.Add(c);
-                        total++;
-                    }
+                    var records = await Task.WhenAll(embeddingTasks);
 
-                    await vectorStore.UpsertAsync(records, ct);
+                    // Update total in a threadsafe way
+                    Interlocked.Add(ref total, records.Length);
+
+                    // Persist records for this batch
+                    await vectorStore.UpsertAsync(records, token);
                 }
-            }
+            });
 
             return Results.Ok(new { indexed = total });
         });
