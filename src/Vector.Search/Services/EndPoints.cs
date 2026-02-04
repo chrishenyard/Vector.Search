@@ -78,16 +78,11 @@ public class EndPoints
             CancellationToken ct) =>
         {
             var repoRoot = cfg["REPO_ROOT"]!;
+            var extensions = (cfg["FILE_EXTENSIONS"]!)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             var files = Directory.EnumerateFiles(repoRoot, "*.*", SearchOption.AllDirectories)
-                .Where(p =>
-                    p.EndsWith(".cs") ||
-                    p.EndsWith(".json") ||
-                    p.EndsWith(".yml") || p.EndsWith(".yaml") ||
-                    p.EndsWith(".csproj") ||
-                    p.EndsWith(".props") || p.EndsWith(".targets") ||
-                    p.EndsWith(".md") ||
-                    p.EndsWith(".sql"))
+                .Where(p => extensions.Any(ext => p.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
                 .Where(p => !p.Contains("/bin/") && !p.Contains("/obj/"))
                 .ToList();
 
