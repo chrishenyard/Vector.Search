@@ -1,7 +1,9 @@
+using AI.Receipts;
+using AI.Receipts.Configuration;
 using AI.Receipts.Services;
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
-using Vector.Search;
-using Vector.Search.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,11 +32,13 @@ builder.Services
     .ConfigureAntiForgery()
     .AddOpenApi()
     .AddTelemetry(configuration)
+    .AddValidatorsFromAssembly(typeof(Program).Assembly, includeInternalTypes: true)
     .AddExceptionHandler<GlobalExceptionHandler>()
     .AddProblemDetails()
     .AddSettings()
     .AddHttp(configuration)
-    .AddServices(configuration);
+    .AddServices(configuration)
+    .AddDbContext(configuration);
 
 var app = builder.Build();
 
@@ -49,6 +53,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.AddStaticFiles(configuration);
 app.UseExceptionHandler();
 app.UseAntiforgery();
 

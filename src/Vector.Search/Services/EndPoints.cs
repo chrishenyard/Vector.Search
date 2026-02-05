@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
-using Vector.Search.Models;
 using Vector.Search.Services;
 using Vector.Search.Settings;
 
@@ -71,7 +70,7 @@ public class EndPoints
             return Results.Ok(new { status = "healthy", models = models.Select(m => m.Name) });
         });
 
-        app.MapPost("/index", async (
+        app.MapPost("/api/embed", async (
             IConfiguration cfg,
             OllamaClient ollama,
             CodeVectorStore vectorStore,
@@ -86,7 +85,7 @@ public class EndPoints
                 .Where(p => !p.Contains("/bin/") && !p.Contains("/obj/"))
                 .ToList();
 
-            await vectorStore.EnsureCollectionAsync(ct);
+            //await vectorStore.EnsureCollectionAsync(ct);
 
             int total = 0;
 
@@ -99,27 +98,17 @@ public class EndPoints
 
             await Parallel.ForEachAsync(files, parallelOptions, async (file, token) =>
             {
-                var chunks = Vector.Search.IO.File.ChunkFile(file, repoRoot).ToList();
-                if (chunks.Count == 0)
-                {
-                    return;
-                }
+                var chunks = Vector.Search.IO.File.ChunkFile(file, repoRoot);
 
                 // Process chunks in batches, but each batch is also parallelized
-                foreach (var batch in chunks.Chunk(16))
+                await foreach (var batch in chunks.Chunk(16))
                 {
                     // Run embedding calls in parallel for this batch
                     var embeddingTasks = batch.Select(async c =>
                     {
                         var embeddingsVector = await ollama.EmbedAsync($"{c.Path}\n{c.Content}", token);
-                        // clone with embedding to avoid mutating shared instances if reused
-                        return new CodeChunkRecord
-                        {
-                            Id = c.Id,
-                            Path = c.Path,
-                            Content = c.Content,
-                            Embedding = embeddingsVector,
-                        };
+                        c.Embedding = embeddingsVector;
+                        return c;
                     }).ToList();
 
                     var records = await Task.WhenAll(embeddingTasks);
@@ -128,7 +117,7 @@ public class EndPoints
                     Interlocked.Add(ref total, records.Length);
 
                     // Persist records for this batch
-                    await vectorStore.UpsertAsync(records, token);
+                    //await vectorStore.UpsertAsync(records, token);
                 }
             });
 

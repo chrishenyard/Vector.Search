@@ -1,6 +1,4 @@
 ﻿using Microsoft.Extensions.VectorData;
-using System.Security.Cryptography;
-using System.Text;
 using Vector.Search.Models;
 
 namespace Vector.Search.Services;
@@ -48,13 +46,5 @@ public sealed class CodeVectorStore(VectorStore vectorStore, IConfiguration cfg)
         }
 
         return results;
-    }
-
-    public static Guid StableGuidFromString(string input)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        Span<byte> guidBytes = stackalloc byte[16];
-        bytes.AsSpan(0, 16).CopyTo(guidBytes);
-        return new Guid(guidBytes);
     }
 }
