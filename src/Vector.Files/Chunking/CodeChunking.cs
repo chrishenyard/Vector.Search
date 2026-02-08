@@ -5,6 +5,8 @@ namespace Vector.Files.Chunking;
 
 public class CodeChunking
 {
+    private const char EndOfBlockMarker = '}';
+
     public async Task GetChunksAsync(
     string savePath,
     string rootPath,
@@ -34,22 +36,69 @@ public class CodeChunking
             await Parallel.ForEachAsync(files, parallelOptions, async (file, writerToken) =>
             {
                 var characterCount = 0;
-                var sb = new StringBuilder(chunkSize * 2);
+                var tempFileName = $"temp_{Guid.NewGuid()}.txt";
+                var tempFilePath = Path.Combine(rootPath, savePath, tempFileName);
+                var writer = new StreamWriter(tempFilePath, append: true, encoding: Encoding.UTF8);
+                using var reader = new StreamReader(file);
 
-                foreach (var line in File.ReadLines(file))
+                try
                 {
-                    if (token.IsCancellationRequested) break;
+                    string? line;
 
-                    sb.Append(line + Environment.NewLine);
-                    characterCount += line.Length + 1; // +1 for newline
-
-                    if (characterCount >= chunkSize)
+                    while ((line = await reader.ReadLineAsync(writerToken)) != null)
                     {
-                        var tempFileName = $"temp_{Guid.NewGuid()}.txt";
-                        var tempFilePath = Path.Combine(rootPath, savePath, tempFileName);
-                        await File.WriteAllTextAsync(tempFilePath, sb.ToString(), writerToken);
-                        sb.Clear();
-                        characterCount = 0;
+                        await writer.WriteLineAsync(line);
+
+                        if (token.IsCancellationRequested) break;
+
+                        var writeLastLookAheadLine = false;
+                        var isEndOfBlock = IsEndOfBlock(line);
+                        characterCount += line.Length + 1; // +1 for newline
+
+                        if (characterCount >= chunkSize)
+                        {
+                            if (isEndOfBlock)
+                            {
+                                // Look ahead until there are no more end of block characters
+                                // to avoid splitting in the middle of a code block
+                                while ((line = await reader.ReadLineAsync(writerToken)) != null)
+                                {
+                                    if (IsEndOfBlock(line))
+                                    {
+                                        await writer.WriteLineAsync(line);
+                                        characterCount += line.Length + 1;
+                                    }
+                                    else
+                                    {
+                                        writeLastLookAheadLine = true;
+                                        break;
+                                    }
+                                }
+
+                                if (writeLastLookAheadLine && line != null)
+                                {
+                                    // Write the last line that was read but didn't end with an end of block character
+                                    await writer.WriteLineAsync(line);
+                                    characterCount += line.Length + 1;
+                                }
+
+                                await writer.FlushAsync(writerToken);
+                                writer.Dispose();
+
+                                tempFileName = $"temp_{Guid.NewGuid()}.txt";
+                                tempFilePath = Path.Combine(rootPath, savePath, tempFileName);
+                                writer = new StreamWriter(tempFilePath, append: true, encoding: Encoding.UTF8);
+                                characterCount = 0;
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    if (writer != null)
+                    {
+                        await writer.FlushAsync(writerToken);
+                        writer.Dispose();
                     }
                 }
             });
@@ -59,6 +108,22 @@ public class CodeChunking
             writerTokenSource.Cancel();
             Console.WriteLine("Chunking operation was cancelled.");
         }
+    }
+
+    private static bool IsEndOfBlock(string line)
+    {
+        ReadOnlySpan<char> span = line.AsSpan();
+        var idx = span.Length - 1;
+
+        // Walk backwards over whitespace only
+        while (idx >= 0 && char.IsWhiteSpace(span[idx]))
+        {
+            idx--;
+        }
+
+        var isEndOfBlock = idx >= 0 && span[idx] == EndOfBlockMarker;
+
+        return isEndOfBlock;
     }
 
     private static string GetLanguage(string fullPath)
