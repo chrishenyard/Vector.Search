@@ -8,22 +8,22 @@ public class CodeChunking
     private const char EndOfBlockMarker = '}';
 
     public async Task GetChunksAsync(
-    string savePath,
-    string rootPath,
-    CancellationToken token,
-    int chunkSize = 5000)
+        string savePath,
+        string rootPath,
+        CancellationToken token,
+        int minimumChunkSize = 5000)
     {
         Directory.CreateDirectory(Path.Combine(rootPath, savePath));
 
         var extensions = (".cs,.json,.yml,.yaml,.csproj,.props,.targets,.md,.sql,.js,.tsx,.ts,.html,.css,.ps1")
-                            .Split(',');
+            .Split(',');
 
-        using var writerTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token);
-        var writerToken = writerTokenSource.Token;
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+        var linkedToken = linkedCts.Token;
 
         var parallelOptions = new ParallelOptions
         {
-            CancellationToken = token,
+            CancellationToken = linkedToken,
             MaxDegreeOfParallelism = Environment.ProcessorCount
         };
 
@@ -33,82 +33,107 @@ public class CodeChunking
 
         try
         {
-            await Parallel.ForEachAsync(files, parallelOptions, async (file, writerToken) =>
-            {
-                var characterCount = 0;
-                var tempFileName = $"temp_{Guid.NewGuid()}.txt";
-                var tempFilePath = Path.Combine(rootPath, savePath, tempFileName);
-                var writer = new StreamWriter(tempFilePath, append: true, encoding: Encoding.UTF8);
-                using var reader = new StreamReader(file);
-
-                try
+            await Parallel.ForEachAsync(files, parallelOptions,
+                async (file, cancellationToken) =>
                 {
-                    string? line;
-
-                    while ((line = await reader.ReadLineAsync(writerToken)) != null)
-                    {
-                        await writer.WriteLineAsync(line);
-
-                        if (token.IsCancellationRequested) break;
-
-                        var writeLastLookAheadLine = false;
-                        var isEndOfBlock = IsEndOfBlock(line);
-                        characterCount += line.Length + 1; // +1 for newline
-
-                        if (characterCount >= chunkSize)
-                        {
-                            if (isEndOfBlock)
-                            {
-                                // Look ahead until there are no more end of block characters
-                                // to avoid splitting in the middle of a code block
-                                while ((line = await reader.ReadLineAsync(writerToken)) != null)
-                                {
-                                    if (IsEndOfBlock(line))
-                                    {
-                                        await writer.WriteLineAsync(line);
-                                        characterCount += line.Length + 1;
-                                    }
-                                    else
-                                    {
-                                        writeLastLookAheadLine = true;
-                                        break;
-                                    }
-                                }
-
-                                if (writeLastLookAheadLine && line != null)
-                                {
-                                    // Write the last line that was read but didn't end with an end of block character
-                                    await writer.WriteLineAsync(line);
-                                    characterCount += line.Length + 1;
-                                }
-
-                                await writer.FlushAsync(writerToken);
-                                writer.Dispose();
-
-                                tempFileName = $"temp_{Guid.NewGuid()}.txt";
-                                tempFilePath = Path.Combine(rootPath, savePath, tempFileName);
-                                writer = new StreamWriter(tempFilePath, append: true, encoding: Encoding.UTF8);
-                                characterCount = 0;
-                            }
-                        }
-                    }
-                }
-                finally
-                {
-                    if (writer != null)
-                    {
-                        await writer.FlushAsync(writerToken);
-                        writer.Dispose();
-                    }
-                }
-            });
+                    await ChunkSingleFileAsync(
+                        file,
+                        rootPath,
+                        savePath,
+                        minimumChunkSize,
+                        cancellationToken);
+                });
         }
         catch (OperationCanceledException)
         {
-            writerTokenSource.Cancel();
+            linkedCts.Cancel();
             Console.WriteLine("Chunking operation was cancelled.");
         }
     }
+
+    private static async Task ChunkSingleFileAsync(
+        string filePath,
+        string rootPath,
+        string savePath,
+        int minimumChunkSize,
+        CancellationToken cancellationToken)
+    {
+        var characterCount = 0;
+        var tempFileName = CreateTempFileName();
+        var tempFilePath = Path.Combine(rootPath, savePath, tempFileName);
+
+        StreamWriter? writer = null;
+        try
+        {
+            writer = CreateWriter(tempFilePath);
+
+            using var reader = new StreamReader(filePath);
+            string? line;
+
+            while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await writer.WriteLineAsync(line.AsMemory(), cancellationToken);
+
+                var isEndOfBlock = IsEndOfBlock(line);
+                characterCount += line.Length + Environment.NewLine.Length;
+
+                if (characterCount >= minimumChunkSize && isEndOfBlock)
+                {
+                    // Look ahead until there are no more end of block characters
+                    // to avoid splitting in the middle of a code block
+                    var writeLastLookAheadLine = false;
+
+                    while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        if (IsEndOfBlock(line))
+                        {
+                            await writer.WriteLineAsync(line.AsMemory(), cancellationToken);
+                            characterCount += line.Length + Environment.NewLine.Length;
+                        }
+                        else
+                        {
+                            writeLastLookAheadLine = true;
+                            break;
+                        }
+                    }
+
+                    await writer.FlushAsync(cancellationToken);
+                    await writer.DisposeAsync();
+
+                    tempFileName = CreateTempFileName();
+                    tempFilePath = Path.Combine(rootPath, savePath, tempFileName);
+                    writer = CreateWriter(tempFilePath);
+
+                    if (writeLastLookAheadLine && line != null)
+                    {
+                        await writer.WriteLineAsync(line.AsMemory(), cancellationToken);
+                        characterCount = line.Length + Environment.NewLine.Length;
+                    }
+                    else
+                    {
+                        characterCount = 0;
+                    }
+                }
+            }
+        }
+        finally
+        {
+            if (writer is not null)
+            {
+                await writer.FlushAsync(cancellationToken);
+                await writer.DisposeAsync();
+            }
+        }
+    }
+
+    private static string CreateTempFileName() => $"temp_{Guid.NewGuid()}.txt";
+
+    private static StreamWriter CreateWriter(string path) =>
+        new(path, append: true, encoding: Encoding.UTF8);
 
     private static bool IsEndOfBlock(string line)
     {
@@ -121,9 +146,7 @@ public class CodeChunking
             idx--;
         }
 
-        var isEndOfBlock = idx >= 0 && span[idx] == EndOfBlockMarker;
-
-        return isEndOfBlock;
+        return idx >= 0 && span[idx] == EndOfBlockMarker;
     }
 
     private static string GetLanguage(string fullPath)
@@ -162,7 +185,6 @@ public class CodeChunking
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
-
 
     public static Guid StableGuidFromString(string input)
     {
