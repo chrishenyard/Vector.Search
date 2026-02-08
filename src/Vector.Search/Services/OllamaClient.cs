@@ -26,7 +26,8 @@ public sealed class OllamaClient(
             Options = new RequestOptions
             {
                 NumCtx = _settings.EmbeddingsContextWindowSize,
-                Temperature = _settings.Temperature
+                Temperature = _settings.Temperature,
+                TopP = _settings.TopP
             }
         };
 

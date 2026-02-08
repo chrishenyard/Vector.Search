@@ -1,4 +1,9 @@
 <Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
   <Folder Name="/Solution Items/">
     <File Path=".env" />
     <File Path="Docker-Compose-Down.ps1" />
@@ -7,8 +12,11 @@
     <File Path="README.md" />
     <File Path="src/Directory.Packages.props" />
   </Folder>
+  <Project Path="../Vector.Search.Tests/Vector.Search.Tests.csproj" Id="f5e885b0-8dea-4729-867e-22af448d6fb1" />
   <Project Path="docker-compose.dcproj">
+    <Platform Project="AnyCPU" />
     <Build />
   </Project>
+  <Project Path="src/Vector.Files/Vector.Files.csproj" Id="b9db234f-67d5-4ca5-b0fa-3c2aea5026e0" />
   <Project Path="src/Vector.Search/Vector.Search.csproj" />
 </Solution>

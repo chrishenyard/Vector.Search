@@ -12,5 +12,6 @@ public class OllamaSettings
     public int TimeoutFromMinutes { get; set; } = 5;
     public int EmbeddingsContextWindowSize { get; set; } = 8192;
     public int ChatContextWindowSize { get; set; } = 8192;
-    public float Temperature { get; set; } = 0.8f;
+    public float Temperature { get; set; } = 0.4f;
+    public float TopP { get; set; } = 0.4f;
 }

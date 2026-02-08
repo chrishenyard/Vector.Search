@@ -7,15 +7,15 @@ namespace Vector.Search.IO;
 public static class File
 {
     public static async IAsyncEnumerable<CodeChunkRecord> ChunkFile(
-        string fullPath,
-        string repoRoot,
+        string filePath,
+        string root,
         bool saveChunk = false)
     {
         Directory.CreateDirectory(Path.Combine("chunks", "files"));
 
-        var relPath = Path.GetRelativePath(repoRoot, fullPath).Replace('\\', '/');
-        var lines = System.IO.File.ReadAllLines(fullPath);
-        var language = GetLanguage(fullPath);
+        var relPath = Path.GetRelativePath(root, filePath).Replace('\\', '/');
+        var lines = System.IO.File.ReadAllLines(filePath);
+        var language = GetLanguage(filePath);
 
         // Heuristic: chunk by blocks separated by 2+ blank lines OR by size.
         var chunks = new List<(int start, int end)>();
