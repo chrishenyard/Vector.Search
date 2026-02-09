@@ -36,4 +36,8 @@
     <ProjectReference Include="..\Vector.Files\Vector.Files.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Hubs\" />
+  </ItemGroup>
+
 </Project>

@@ -1,10 +1,12 @@
-﻿using System.Security.Cryptography;
+﻿using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Vector.Files.Chunking;
 
-public class CodeChunking : IChunk
+public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
 {
+    private readonly ILogger<CodeChunking> _logger = logger;
     private const char EndOfBlockMarker = '}';
 
     public async Task GetChunksAsync(
@@ -34,6 +36,8 @@ public class CodeChunking : IChunk
             await Parallel.ForEachAsync(files, parallelOptions,
                 async (file, cancellationToken) =>
                 {
+                    _logger.LogDebug("Processing file: {FilePath}", file);
+
                     await ChunkSingleFileAsync(
                         file,
                         rootPath,
@@ -45,7 +49,7 @@ public class CodeChunking : IChunk
         catch (OperationCanceledException)
         {
             linkedCts.Cancel();
-            Console.WriteLine("Chunking operation was cancelled.");
+            _logger.LogInformation("Chunking operation was canceled.");
         }
     }
 

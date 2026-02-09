@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using Microsoft.Extensions.Logging;
+using System.Text;
 using Vector.Files.Chunking;
 
 namespace Vector.Tools.Tests.Files;
@@ -32,7 +33,7 @@ public class CodeChunkingTests
 
         await File.WriteAllTextAsync(sourceFile, sb.ToString());
 
-        var sut = new CodeChunking();
+        var sut = new CodeChunking(new LoggerFactory().CreateLogger<CodeChunking>());
         var cts = new CancellationTokenSource();
 
         try
@@ -91,7 +92,7 @@ public class CodeChunkingTests
         Directory.CreateDirectory(writePath);
         File.Copy("Resources/Code.txt", filePath, overwrite: true);
 
-        var sut = new CodeChunking();
+        var sut = new CodeChunking(new LoggerFactory().CreateLogger<CodeChunking>());
         var cts = new CancellationTokenSource();
 
         try
