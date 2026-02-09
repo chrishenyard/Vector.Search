@@ -24,7 +24,7 @@ public class CodeChunking
         var parallelOptions = new ParallelOptions
         {
             CancellationToken = linkedToken,
-            MaxDegreeOfParallelism = Environment.ProcessorCount
+            MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount / 2, 1) // Use half of the available processors to avoid overwhelming the system
         };
 
         var files = Directory.EnumerateFiles(rootPath, "*.*", SearchOption.AllDirectories)
