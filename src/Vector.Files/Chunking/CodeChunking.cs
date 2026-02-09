@@ -8,15 +8,14 @@ public class CodeChunking
     private const char EndOfBlockMarker = '}';
 
     public async Task GetChunksAsync(
-        string savePath,
+        string writePath,
         string rootPath,
+        string[] fileExtensions,
         CancellationToken token,
         int minimumChunkSize = 5000)
     {
-        Directory.CreateDirectory(Path.Combine(rootPath, savePath));
-
-        var extensions = (".cs,.json,.yml,.yaml,.csproj,.props,.targets,.md,.sql,.js,.tsx,.ts,.html,.css,.ps1")
-            .Split(',');
+        ArgumentException.ThrowIfNullOrEmpty(writePath, nameof(writePath));
+        ArgumentException.ThrowIfNullOrEmpty(rootPath, nameof(rootPath));
 
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);
         var linkedToken = linkedCts.Token;
@@ -28,7 +27,7 @@ public class CodeChunking
         };
 
         var files = Directory.EnumerateFiles(rootPath, "*.*", SearchOption.AllDirectories)
-            .Where(p => extensions.Any(ext => p.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+            .Where(p => fileExtensions.Any(ext => p.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
             .ToList();
 
         try
@@ -39,7 +38,7 @@ public class CodeChunking
                     await ChunkSingleFileAsync(
                         file,
                         rootPath,
-                        savePath,
+                        writePath,
                         minimumChunkSize,
                         cancellationToken);
                 });
