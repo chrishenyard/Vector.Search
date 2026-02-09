@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Vector.Files.Chunking;
 
-public class CodeChunking
+public class CodeChunking : IChunk
 {
     private const char EndOfBlockMarker = '}';
 
@@ -27,8 +27,7 @@ public class CodeChunking
         };
 
         var files = Directory.EnumerateFiles(rootPath, "*.*", SearchOption.AllDirectories)
-            .Where(p => fileExtensions.Any(ext => p.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
+            .Where(p => fileExtensions.Any(ext => p.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
         try
         {
@@ -68,10 +67,20 @@ public class CodeChunking
 
             using var reader = new StreamReader(filePath);
             string? line;
+            var firstLine = true;
 
             while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
+                if (firstLine)
+                {
+                    firstLine = false;
+                    if (string.IsNullOrWhiteSpace(line))
+                    {
+                        continue; // Skip leading empty lines
+                    }
+                }
 
                 await writer.WriteLineAsync(line.AsMemory(), cancellationToken);
 
@@ -83,10 +92,20 @@ public class CodeChunking
                     // Look ahead until there are no more end of block characters
                     // to avoid splitting in the middle of a code block
                     var writeLastLookAheadLine = false;
+                    firstLine = true;
 
                     while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
+
+                        if (firstLine)
+                        {
+                            firstLine = false;
+                            if (string.IsNullOrWhiteSpace(line))
+                            {
+                                continue; // Skip leading empty lines
+                            }
+                        }
 
                         if (IsEndOfBlock(line))
                         {
@@ -178,7 +197,7 @@ public class CodeChunking
         return "text";
     }
 
-    static string ToSha256(string input)
+    public static string ToSha256(string input)
     {
         using var sha = SHA256.Create();
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(input));

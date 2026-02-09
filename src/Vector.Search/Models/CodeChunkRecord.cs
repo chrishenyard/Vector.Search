@@ -11,12 +11,6 @@ public sealed class CodeChunkRecord
     public string Path { get; set; } = "";
 
     [VectorStoreData(IsIndexed = true)]
-    public int StartLine { get; set; }
-
-    [VectorStoreData(IsIndexed = true)]
-    public int EndLine { get; set; }
-
-    [VectorStoreData(IsIndexed = true)]
     public string Language { get; set; } = "";
 
     [VectorStoreData(IsFullTextIndexed = true)]

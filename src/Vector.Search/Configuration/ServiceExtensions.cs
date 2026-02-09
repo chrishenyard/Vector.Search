@@ -4,6 +4,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Vector.Files.Chunking;
 using Vector.Search.Services;
 using Vector.Search.Settings;
 
@@ -67,7 +68,8 @@ public static class ServiceExtensions
     {
         var qdrantUrl = config["QDRANT_URL"]!;
 
-        services.AddQdrantVectorStore("qdrant");
+        services.AddScoped<IChunk, CodeChunking>()
+            .AddQdrantVectorStore("qdrant");
 
         services.AddScoped(sp =>
         {

@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
+using Vector.Files.Chunking;
+using Vector.Search.Models;
 using Vector.Search.Services;
 using Vector.Search.Settings;
 
@@ -74,15 +76,19 @@ public class EndPoints
             IConfiguration cfg,
             OllamaClient ollama,
             CodeVectorStore vectorStore,
-            CancellationToken ct) =>
+            IChunk chunk,
+            CancellationToken token) =>
         {
-            var repoRoot = cfg["REPO_ROOT"]!;
+            var rootPath = cfg["REPO_ROOT"]!;
+            var writePath = Path.Combine(Path.GetTempPath(), "write");
+
+            Directory.CreateDirectory(writePath);
+
             var extensions = (cfg["FILE_EXTENSIONS"]!)
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-            var files = Directory.EnumerateFiles(repoRoot, "*.*", SearchOption.AllDirectories)
+            var files = Directory.EnumerateFiles(rootPath, "*.*", SearchOption.AllDirectories)
                 .Where(p => extensions.Any(ext => p.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
-                .Where(p => !p.Contains("/bin/") && !p.Contains("/obj/"))
                 .ToList();
 
             //await vectorStore.EnsureCollectionAsync(ct);
@@ -92,34 +98,37 @@ public class EndPoints
             // Process files in parallel, but keep overall concurrency moderate
             var parallelOptions = new ParallelOptions
             {
-                CancellationToken = ct,
-                MaxDegreeOfParallelism = Environment.ProcessorCount
+                CancellationToken = token,
+                MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount / 2, 1) // Use half of the available processors to avoid overwhelming the system
             };
 
-            await Parallel.ForEachAsync(files, parallelOptions, async (file, token) =>
+            foreach (var file in files)
             {
-                var chunks = Vector.Search.IO.File.ChunkFile(file, repoRoot);
+                await chunk.GetChunksAsync(writePath, rootPath, extensions, token);
+                var chunks = Directory.EnumerateFiles(writePath, "*.*");
 
-                // Process chunks in batches, but each batch is also parallelized
-                await foreach (var batch in chunks.Chunk(16))
+                await Parallel.ForEachAsync(chunks, parallelOptions, async (batch, ct) =>
                 {
-                    // Run embedding calls in parallel for this batch
-                    var embeddingTasks = batch.Select(async c =>
-                    {
-                        var embeddingsVector = await ollama.EmbedAsync($"{c.Path}\n{c.Content}", token);
-                        c.Embedding = embeddingsVector;
-                        return c;
-                    }).ToList();
+                    var content = await File.ReadAllTextAsync(batch, ct);
+                    var embeddings = await ollama.EmbedAsync($"{batch}\n{content}", ct);
 
-                    var records = await Task.WhenAll(embeddingTasks);
+                    var c = new CodeChunkRecord
+                    {
+                        Id = Guid.NewGuid(),
+                        Path = batch,
+                        Language = Path.GetExtension(batch).TrimStart('.'),
+                        Hash = CodeChunking.ToSha256(content),
+                        Content = content,
+                        Embedding = embeddings
+                    };
 
                     // Update total in a threadsafe way
-                    Interlocked.Add(ref total, records.Length);
+                    Interlocked.Add(ref total, 1);
 
                     // Persist records for this batch
                     //await vectorStore.UpsertAsync(records, token);
-                }
-            });
+                });
+            }
 
             return Results.Ok(new { indexed = total });
         });
@@ -128,7 +137,11 @@ public class EndPoints
             [FromForm] IFormFile file,
             ILogger<EndPoints> logger) =>
         {
-            return Results.Ok(new { filename = file.FileName, length = file.Length });
+            return Results.Ok(new
+            {
+                filename = file.FileName,
+                length = file.Length
+            });
         });
     }
 }

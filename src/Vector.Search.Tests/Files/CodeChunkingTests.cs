@@ -115,11 +115,11 @@ public class CodeChunkingTests
         finally
         {
             // Cleanup
-            if (Directory.Exists(rootPath))
+            if (Directory.Exists(root))
             {
                 try
                 {
-                    Directory.Delete(rootPath, recursive: true);
+                    Directory.Delete(root, recursive: true);
                 }
                 catch
                 {
