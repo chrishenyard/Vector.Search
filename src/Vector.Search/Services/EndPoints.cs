@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
 using Vector.Files.Chunking;
-using Vector.Search.Models;
+using Vector.Search.Hubs;
 using Vector.Search.Services;
 using Vector.Search.Settings;
 
@@ -77,12 +78,12 @@ public class EndPoints
             OllamaClient ollama,
             CodeVectorStore vectorStore,
             IChunk chunk,
+            IHubContext<ChunkHub> hubContext,
+            ILogger<EndPoints> logger,
             CancellationToken token) =>
         {
             var rootPath = cfg["REPO_ROOT"]!;
             var writePath = Path.Combine(Path.GetTempPath(), "write");
-
-            Directory.CreateDirectory(writePath);
 
             var extensions = (cfg["FILE_EXTENSIONS"]!)
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -102,32 +103,53 @@ public class EndPoints
                 MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount / 2, 1) // Use half of the available processors to avoid overwhelming the system
             };
 
-            foreach (var file in files)
+            try
             {
-                await chunk.GetChunksAsync(writePath, rootPath, extensions, token);
-                var chunks = Directory.EnumerateFiles(writePath, "*.*");
+                Directory.CreateDirectory(writePath);
 
-                await Parallel.ForEachAsync(chunks, parallelOptions, async (batch, ct) =>
+                foreach (var file in files)
                 {
-                    var content = await File.ReadAllTextAsync(batch, ct);
-                    var embeddings = await ollama.EmbedAsync($"{batch}\n{content}", ct);
+                    await chunk.GetChunksAsync(writePath, rootPath, extensions, token);
+                    var chunks = Directory.EnumerateFiles(writePath, "*.*");
 
-                    var c = new CodeChunkRecord
+                    await hubContext.Clients.All.SendCoreAsync("UpdateChunk", [file], token);
+
+                    await Parallel.ForEachAsync(chunks, parallelOptions, async (batch, ct) =>
                     {
-                        Id = Guid.NewGuid(),
-                        Path = batch,
-                        Language = Path.GetExtension(batch).TrimStart('.'),
-                        Hash = CodeChunking.ToSha256(content),
-                        Content = content,
-                        Embedding = embeddings
-                    };
+                        var content = await File.ReadAllTextAsync(batch, ct);
+                        //var embeddings = await ollama.EmbedAsync($"{batch}\n{content}", ct);
 
-                    // Update total in a threadsafe way
-                    Interlocked.Add(ref total, 1);
+                        //var c = new CodeChunkRecord
+                        //{
+                        //    Id = Guid.NewGuid(),
+                        //    Path = batch,
+                        //    Language = Path.GetExtension(batch).TrimStart('.'),
+                        //    Hash = CodeChunking.ToSha256(content),
+                        //    Content = content,
+                        //    Embedding = embeddings
+                        //};
 
-                    // Persist records for this batch
-                    //await vectorStore.UpsertAsync(records, token);
-                });
+                        // Update total in a threadsafe way
+                        Interlocked.Add(ref total, 1);
+
+                        // Persist records for this batch
+                        //await vectorStore.UpsertAsync(records, token);
+                    });
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(writePath))
+                {
+                    try
+                    {
+                        Directory.Delete(writePath, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to clean up temporary files at {WritePath}", writePath);
+                    }
+                }
             }
 
             return Results.Ok(new { indexed = total });

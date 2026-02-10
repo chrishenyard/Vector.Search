@@ -2,6 +2,7 @@ using AI.Receipts.Services;
 using Serilog;
 using Vector.Search;
 using Vector.Search.Configuration;
+using Vector.Search.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,7 +35,14 @@ builder.Services
     .AddProblemDetails()
     .AddSettings()
     .AddHttp(configuration)
-    .AddServices(configuration);
+    .AddServices(configuration)
+    .AddSignalR(options =>
+    {
+        options.EnableDetailedErrors = true;
+        options.KeepAliveInterval = TimeSpan.FromSeconds(5);
+        options.ClientTimeoutInterval = TimeSpan.FromSeconds(5);
+    })
+    .AddNewtonsoftJsonProtocol();
 
 var app = builder.Build();
 
@@ -51,6 +59,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseExceptionHandler();
 app.UseAntiforgery();
+app.MapHub<ChunkHub>("/chunkhub");
 
 EndPoints.Map(app);
 app.Run();

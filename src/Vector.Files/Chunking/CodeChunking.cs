@@ -19,38 +19,27 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
         ArgumentException.ThrowIfNullOrEmpty(writePath, nameof(writePath));
         ArgumentException.ThrowIfNullOrEmpty(rootPath, nameof(rootPath));
 
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);
-        var linkedToken = linkedCts.Token;
-
         var parallelOptions = new ParallelOptions
         {
-            CancellationToken = linkedToken,
+            CancellationToken = token,
             MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount / 2, 1) // Use half of the available processors to avoid overwhelming the system
         };
 
         var files = Directory.EnumerateFiles(rootPath, "*.*", SearchOption.AllDirectories)
             .Where(p => fileExtensions.Any(ext => p.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
-        try
-        {
-            await Parallel.ForEachAsync(files, parallelOptions,
-                async (file, cancellationToken) =>
-                {
-                    _logger.LogDebug("Processing file: {FilePath}", file);
+        await Parallel.ForEachAsync(files, parallelOptions,
+            async (file, cancellationToken) =>
+            {
+                _logger.LogDebug("Processing file: {FilePath}", file);
 
-                    await ChunkSingleFileAsync(
-                        file,
-                        rootPath,
-                        writePath,
-                        minimumChunkSize,
-                        cancellationToken);
-                });
-        }
-        catch (OperationCanceledException)
-        {
-            linkedCts.Cancel();
-            _logger.LogInformation("Chunking operation was canceled.");
-        }
+                await ChunkSingleFileAsync(
+                    file,
+                    rootPath,
+                    writePath,
+                    minimumChunkSize,
+                    cancellationToken);
+            });
     }
 
     private static async Task ChunkSingleFileAsync(
