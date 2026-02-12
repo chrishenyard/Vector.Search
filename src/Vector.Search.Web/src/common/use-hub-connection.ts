@@ -10,13 +10,25 @@ interface UseHubConnectionState {
 interface UseHubConnectionOptions {
   hubUrl: string;
   maxRetries?: number;
+  keepAliveInterval?: number;
+  serverTimeout?: number;
   onConnectionStateChange?: (state: string) => void;
   onRetryAttempt?: (attempt: number, message: string) => void;
   onCleanUp?: () => void;
 }
 
-export default function useHubConnection(options: UseHubConnectionOptions): UseHubConnectionState {
-  const { hubUrl, maxRetries, onConnectionStateChange, onRetryAttempt, onCleanUp } = options;
+export default function useHubConnection(
+  options: UseHubConnectionOptions,
+): UseHubConnectionState {
+  const {
+    hubUrl,
+    maxRetries,
+    keepAliveInterval = 30000,
+    serverTimeout = 5000,
+    onConnectionStateChange,
+    onRetryAttempt,
+    onCleanUp,
+  } = options;
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const retryCountRef = useRef(0);
 
@@ -31,13 +43,13 @@ export default function useHubConnection(options: UseHubConnectionOptions): UseH
             onConnectionStateChange?.("reconnecting");
             onRetryAttempt?.(
               retryCountRef.current,
-              `Connection lost. Attempting to reconnect... (Attempt ${retryCountRef.current}/${maxRetries})`
+              `Connection lost. Attempting to reconnect... (Attempt ${retryCountRef.current}/${maxRetries})`,
             );
 
             if (retryCountRef.current >= (maxRetries ?? 5)) {
               onRetryAttempt?.(
                 retryCountRef.current,
-                `Connection lost. Retry attempts exceeded... (Attempt ${retryCountRef.current}/${maxRetries})`
+                `Connection lost. Retry attempts exceeded... (Attempt ${retryCountRef.current}/${maxRetries})`,
               );
               onCleanUp?.();
               return null;
@@ -46,9 +58,9 @@ export default function useHubConnection(options: UseHubConnectionOptions): UseH
             return Math.pow(2, retryContext.previousRetryCount) * 1000;
           },
         })
-        .configureLogging(signalR.LogLevel.Debug)
-        .withKeepAliveInterval(5000)
-        .withServerTimeout(5000)
+        .configureLogging(signalR.LogLevel.Information)
+        .withKeepAliveInterval(keepAliveInterval)
+        .withServerTimeout(serverTimeout)
         .build();
     }
     return connectionRef.current;
@@ -62,7 +74,6 @@ export default function useHubConnection(options: UseHubConnectionOptions): UseH
         console.log("SignalR reconnected", connectionId);
         retryCountRef.current = 0;
         onConnectionStateChange?.("ready");
-        connection.invoke("Start");
       });
 
       console.log("Starting SignalR connection...");
