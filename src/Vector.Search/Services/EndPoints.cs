@@ -12,6 +12,13 @@ namespace AI.Receipts.Services;
 
 public class EndPoints
 {
+    public struct ChunkUpdateMessage
+    {
+        public ChunkUpdateMessage() { }
+
+        public string FilePath { get; set; } = default!;
+    }
+
     public static void Map(WebApplication app)
     {
         app.MapGet("/", () => "Vector search is running...");
@@ -106,13 +113,18 @@ public class EndPoints
             try
             {
                 Directory.CreateDirectory(writePath);
+                var chunkUpdateMessages = new object?[1];
+                var chunkUpdateMessage = new ChunkUpdateMessage();
 
                 foreach (var file in files)
                 {
                     await chunk.GetChunksAsync(writePath, rootPath, extensions, token);
                     var chunks = Directory.EnumerateFiles(writePath, "*.*");
 
-                    await hubContext.Clients.All.SendCoreAsync("UpdateChunk", [file], token);
+                    chunkUpdateMessage.FilePath = file;
+                    chunkUpdateMessages[0] = chunkUpdateMessage;
+
+                    await hubContext.Clients.All.SendCoreAsync("ChunkProcessed", chunkUpdateMessages, token);
 
                     await Parallel.ForEachAsync(chunks, parallelOptions, async (batch, ct) =>
                     {

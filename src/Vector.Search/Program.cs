@@ -59,7 +59,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseExceptionHandler();
 app.UseAntiforgery();
-app.MapHub<ChunkHub>("/chunkhub");
+app.MapHub<ChunkHub>("/embedhub");
 
 EndPoints.Map(app);
 app.Run();
