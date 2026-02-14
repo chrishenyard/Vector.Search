@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using OllamaSharp;
 using Vector.Files.Chunking;
 using Vector.Search.Hubs;
+using Vector.Search.Models;
 using Vector.Search.Services;
 using Vector.Search.Settings;
 
@@ -17,6 +18,7 @@ public class EndPoints
         public ChunkUpdateMessage() { }
 
         public string FilePath { get; set; } = default!;
+        public float[] Embeddings { get; set; } = default!;
     }
 
     public static void Map(WebApplication app)
@@ -99,7 +101,7 @@ public class EndPoints
                 .Where(p => extensions.Any(ext => p.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
 
-            //await vectorStore.EnsureCollectionAsync(ct);
+            await vectorStore.EnsureCollectionAsync(token);
 
             int total = 0;
 
@@ -121,25 +123,26 @@ public class EndPoints
                     await chunk.GetChunksAsync(writePath, rootPath, extensions, token);
                     var chunks = Directory.EnumerateFiles(writePath, "*.*");
 
-                    chunkUpdateMessage.FilePath = file;
-                    chunkUpdateMessages[0] = chunkUpdateMessage;
-
-                    await hubContext.Clients.All.SendCoreAsync("ChunkProcessed", chunkUpdateMessages, token);
-
                     await Parallel.ForEachAsync(chunks, parallelOptions, async (batch, ct) =>
                     {
                         var content = await File.ReadAllTextAsync(batch, ct);
-                        //var embeddings = await ollama.EmbedAsync($"{batch}\n{content}", ct);
+                        var embeddings = await ollama.EmbedAsync($"{batch}\n{content}", ct);
 
-                        //var c = new CodeChunkRecord
-                        //{
-                        //    Id = Guid.NewGuid(),
-                        //    Path = batch,
-                        //    Language = Path.GetExtension(batch).TrimStart('.'),
-                        //    Hash = CodeChunking.ToSha256(content),
-                        //    Content = content,
-                        //    Embedding = embeddings
-                        //};
+                        chunkUpdateMessage.FilePath = batch;
+                        chunkUpdateMessage.Embeddings = [.. embeddings];
+                        chunkUpdateMessages[0] = chunkUpdateMessage;
+
+                        await hubContext.Clients.All.SendCoreAsync("ChunkProcessed", chunkUpdateMessages, ct);
+
+                        var c = new CodeChunkRecord
+                        {
+                            Id = Guid.NewGuid(),
+                            Path = batch,
+                            Language = Path.GetExtension(batch).TrimStart('.'),
+                            Hash = CodeChunking.ToSha256(content),
+                            Content = content,
+                            Embedding = embeddings
+                        };
 
                         // Update total in a threadsafe way
                         Interlocked.Add(ref total, 1);

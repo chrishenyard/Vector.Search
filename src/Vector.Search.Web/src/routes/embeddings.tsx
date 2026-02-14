@@ -165,7 +165,7 @@ function RouteComponent() {
 
     const response = await apiClient.post("/api/embed");
 
-    if (response.status === 200 || response.status === 202) {
+    if (response.status >= 200 && response.status < 300) {
       addMessage({
         type: "api",
         message: `Embedding process accepted and started (HTTP ${response.status})`,

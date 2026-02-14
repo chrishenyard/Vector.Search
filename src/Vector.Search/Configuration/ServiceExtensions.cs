@@ -66,15 +66,10 @@ public static class ServiceExtensions
 
     public static IServiceCollection AddServices(this IServiceCollection services, IConfiguration config)
     {
-        var qdrantUrl = config["QDRANT_URL"]!;
+        var qdrantHost = config["QDRANT_HOST"]!;
 
         services.AddScoped<IChunk, CodeChunking>()
-            .AddQdrantVectorStore("qdrant");
-
-        services.AddScoped(sp =>
-        {
-            return new Qdrant.Client.QdrantClient(qdrantUrl, https: true);
-        });
+            .AddQdrantVectorStore(host: qdrantHost, https: false);
 
         services.AddScoped<IOllamaClientFactory, OllamaClientFactory>();
         services.AddScoped(sp =>
