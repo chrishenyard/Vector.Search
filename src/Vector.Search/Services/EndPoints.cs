@@ -123,6 +123,9 @@ public class EndPoints
                     await chunk.GetChunksAsync(writePath, rootPath, extensions, token);
                     var chunks = Directory.EnumerateFiles(writePath, "*.*");
 
+                    chunkUpdateMessage.FilePath = file;
+                    await hubContext.Clients.All.SendCoreAsync("ChunkProcessed", chunkUpdateMessages, token);
+
                     await Parallel.ForEachAsync(chunks, parallelOptions, async (batch, ct) =>
                     {
                         var content = await File.ReadAllTextAsync(batch, ct);

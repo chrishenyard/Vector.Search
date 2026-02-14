@@ -4,6 +4,7 @@ import * as signalR from "@microsoft/signalr";
 import useHubConnection from "../common/use-hub-connection";
 import { ChunkMessage, ConsoleMessage } from "../types/chunk-message-types";
 import apiClient from "../services/api";
+import { ApiResponse } from "../types/api-response-types";
 
 export const Route = createFileRoute("/embeddings")({
   component: RouteComponent,
@@ -163,9 +164,9 @@ function RouteComponent() {
       message: "Starting embedding process...",
     });
 
-    const response = await apiClient.post("/api/embed");
+    const response = (await apiClient.post("/api/embed")) as ApiResponse<any>;
 
-    if (response.status >= 200 && response.status < 300) {
+    if (response.ok) {
       addMessage({
         type: "api",
         message: `Embedding process accepted and started (HTTP ${response.status})`,

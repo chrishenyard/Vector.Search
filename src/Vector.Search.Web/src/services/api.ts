@@ -69,7 +69,16 @@ apiClient.interceptors.response.use(
       url: response.config.url,
       data: response.data,
     });
-    return response;
+    const apiResponse = {
+      data: response.data,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      config: response.config,
+      request: response.request,
+      ok: response.status >= 200 && response.status < 300,
+    };
+    return apiResponse;
   },
   (error) => {
     console.error("API Response Error:", {
