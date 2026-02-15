@@ -5,6 +5,7 @@ interface UseHubConnectionState {
   connection: signalR.HubConnection;
   connectionRef: React.RefObject<signalR.HubConnection | null>;
   startConnection: () => Promise<void>;
+  stopConnection: () => Promise<void>;
 }
 
 interface UseHubConnectionOptions {
@@ -24,7 +25,7 @@ export default function useHubConnection(
     hubUrl,
     maxRetries,
     keepAliveInterval = 30000,
-    serverTimeout = 5000,
+    serverTimeout = 60000,
     onConnectionStateChange,
     onRetryAttempt,
     onCleanUp,
@@ -58,30 +59,74 @@ export default function useHubConnection(
             return Math.pow(2, retryContext.previousRetryCount) * 1000;
           },
         })
-        .configureLogging(signalR.LogLevel.Information)
+        .configureLogging(signalR.LogLevel.Debug)
         .withKeepAliveInterval(keepAliveInterval)
         .withServerTimeout(serverTimeout)
         .build();
+
+      // Set up connection event handlers once
+      connectionRef.current.onclose((error) => {
+        console.log("SignalR connection closed", error);
+        retryCountRef.current = 0;
+        onConnectionStateChange?.("disconnected");
+      });
+
+      connectionRef.current.onreconnecting((error) => {
+        console.log("SignalR reconnecting", error);
+        onConnectionStateChange?.("reconnecting");
+      });
+
+      connectionRef.current.onreconnected((connectionId) => {
+        console.log("SignalR reconnected", connectionId);
+        retryCountRef.current = 0;
+        onConnectionStateChange?.("connected");
+      });
     }
     return connectionRef.current;
-  }, [hubUrl]);
+  }, [
+    hubUrl,
+    keepAliveInterval,
+    serverTimeout,
+    maxRetries,
+    onConnectionStateChange,
+    onRetryAttempt,
+    onCleanUp,
+  ]);
 
   const startConnection = useCallback(async () => {
     if (!connection) return;
 
-    if (connection.state === signalR.HubConnectionState.Disconnected) {
-      connection.onreconnected((connectionId) => {
-        console.log("SignalR reconnected", connectionId);
-        retryCountRef.current = 0;
-        onConnectionStateChange?.("ready");
-      });
-
-      console.log("Starting SignalR connection...");
-      onConnectionStateChange?.("connecting");
-      await connection.start();
-      console.log("SignalR connection started");
+    try {
+      if (connection.state === signalR.HubConnectionState.Disconnected) {
+        console.log("Starting SignalR connection...");
+        onConnectionStateChange?.("connecting");
+        await connection.start();
+        console.log("SignalR connection started");
+        onConnectionStateChange?.("connected");
+      } else {
+        console.log(`Connection already in state: ${connection.state}`);
+      }
+    } catch (error) {
+      console.error("Failed to start SignalR connection:", error);
+      onConnectionStateChange?.("disconnected");
+      throw error;
     }
-  }, [connection, onConnectionStateChange, onRetryAttempt, maxRetries]);
+  }, [connection, onConnectionStateChange]);
 
-  return { connection, connectionRef, startConnection };
+  const stopConnection = useCallback(async () => {
+    if (!connection) return;
+
+    try {
+      if (connection.state !== signalR.HubConnectionState.Disconnected) {
+        console.log("Stopping SignalR connection...");
+        await connection.stop();
+        console.log("SignalR connection stopped");
+        onConnectionStateChange?.("disconnected");
+      }
+    } catch (error) {
+      console.error("Failed to stop SignalR connection:", error);
+    }
+  }, [connection, onConnectionStateChange]);
+
+  return { connection, connectionRef, startConnection, stopConnection };
 }

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback, useRef, useEffect } from "react";
 import * as signalR from "@microsoft/signalr";
 import useHubConnection from "../common/use-hub-connection";
-import { ChunkMessage, ConsoleMessage } from "../types/chunk-message-types";
+import { ConsoleMessage } from "../types/chunk-message-types";
 import apiClient from "../services/api";
 import { ApiResponse } from "../types/api-response-types";
 
@@ -54,106 +54,197 @@ function RouteComponent() {
   useEffect(scrollToBottom, [messages]);
 
   const handleChunkMessage = useCallback(
-    (chunkMessage: ChunkMessage) => {
+    (msg: { operationId: string; filePath: string }) => {
+      if (!msg) {
+        addMessage({
+          type: "signalr",
+          message: "Received empty chunk message from SignalR.",
+          data: msg,
+        });
+        return;
+      }
+
       addMessage({
         type: "signalr",
-        message: `${chunkMessage.status?.toUpperCase() || "PROCESSING"}: ${chunkMessage.filePath}${chunkMessage.message ? ` - ${chunkMessage.message}` : ""}`,
-        data: chunkMessage,
+        message: `${msg.operationId}: ${msg.filePath}.`,
+        data: msg,
       });
-
-      if (chunkMessage.error) {
-        addError(chunkMessage.error);
-      }
-
-      if (
-        chunkMessage.status === "completed" ||
-        chunkMessage.status === "error"
-      ) {
-        setIsProcessing(false);
-      }
     },
-    [addMessage, addError],
+    [],
   );
 
-  const handleRetryAttempt = useCallback(
-    (attempt: number, message: string) => {
-      attemptsRef.current = attempt;
-      setRetryAttempt(attempt);
-      setRetryMessage(message);
+  const handleEmbeddingCompleteMessage = useCallback(
+    (msg: { operationId: string; indexed: number }) => {
+      if (!msg) {
+        addMessage({
+          type: "signalr",
+          message: "Received empty complete message from SignalR.",
+          data: msg,
+        });
+        return;
+      }
+
       addMessage({
-        type: "system",
-        message: message,
+        type: "signalr",
+        message: `${msg.operationId}: - Completed. Indexed ${msg.indexed} chunks.`,
+        data: msg,
       });
+
+      disconnectFromHub();
     },
-    [addMessage],
+    [],
   );
 
-  const cleanUp = useCallback(() => {
-    const connection = connectionRef.current;
+  const handleEmbeddingErrorMessage = useCallback(
+    (msg: { operationId: string; error: string }) => {
+      if (!msg) {
+        addMessage({
+          type: "signalr",
+          message: "Received empty error message from SignalR.",
+          data: msg,
+        });
+        return;
+      }
+
+      addMessage({
+        type: "signalr",
+        message: `${msg.operationId}: - Error: ${msg.error}`,
+        data: msg,
+      });
+
+      disconnectFromHub();
+    },
+    [],
+  );
+
+  const handleRetryAttempt = useCallback((attempt: number, message: string) => {
+    attemptsRef.current = attempt;
+    setRetryAttempt(attempt);
+    setRetryMessage(message);
+    addMessage({
+      type: "system",
+      message: message,
+    });
+  }, []);
+
+  const cleanUp = useCallback(async () => {
+    const currentConnection = connectionRef.current;
     const attempts = attemptsRef.current;
 
-    if (!connection) return;
+    if (!currentConnection) return;
 
-    if (
-      connection.state === signalR.HubConnectionState.Connected ||
-      (connection.state === signalR.HubConnectionState.Reconnecting &&
-        attempts >= maxRetries)
-    ) {
-      connection.off("ChunkProcessed");
-      connection.stop().catch((err) => {
-        addError(
-          `Connection cleanup failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-      connectionRef.current = null;
+    try {
+      if (
+        currentConnection.state === signalR.HubConnectionState.Connected ||
+        (currentConnection.state === signalR.HubConnectionState.Reconnecting &&
+          attempts >= maxRetries)
+      ) {
+        // Remove all event handlers before stopping
+        currentConnection.off("ChunkProcessed");
+        currentConnection.off("EmbedCompleted");
+        await currentConnection.stop();
+        console.log("Connection cleaned up successfully");
+      }
+    } catch (err) {
+      addError(
+        `Connection cleanup failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }, [addError]);
 
-  const { connection, connectionRef, startConnection } = useHubConnection({
-    hubUrl: "/embedhub",
-    maxRetries: maxRetries,
-    onConnectionStateChange: setStatus,
-    onRetryAttempt: handleRetryAttempt,
-    onCleanUp: cleanUp,
-    keepAliveInterval: 30000, // 30 seconds - more lenient for long-running operations
-    serverTimeout: 60000, // 60 seconds - wait longer for server response
-  });
+  const { connection, connectionRef, startConnection, stopConnection } =
+    useHubConnection({
+      hubUrl: "/embedhub",
+      maxRetries: maxRetries,
+      keepAliveInterval: 15000, // 15 seconds - more frequent keep-alive
+      serverTimeout: 30000, // 30 seconds - reduced timeout
+      onConnectionStateChange: setStatus,
+      onRetryAttempt: handleRetryAttempt,
+      onCleanUp: cleanUp,
+    });
 
+  // Clean up connection on unmount
   useEffect(() => {
-    (async () => {
-      try {
-        if (connection.state === signalR.HubConnectionState.Disconnected) {
-          addMessage({
-            type: "system",
-            message: "Connecting to SignalR hub...",
-          });
-
-          connection.on("ChunkProcessed", handleChunkMessage);
-          await startConnection();
-          setStatus("connected");
-
-          addMessage({
-            type: "system",
-            message: "Connected to SignalR hub. Ready to process embeddings.",
-          });
-        }
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        addError(`Failed to connect to SignalR hub: ${errorMsg}`);
-      }
-    })();
-
     return () => {
       cleanUp();
     };
-  }, [
-    connection,
-    startConnection,
-    handleChunkMessage,
-    addMessage,
-    addError,
-    cleanUp,
-  ]);
+  }, [cleanUp]);
+
+  const connectToHub = async () => {
+    try {
+      if (connection.state === signalR.HubConnectionState.Disconnected) {
+        addMessage({
+          type: "system",
+          message: "Connecting to SignalR hub...",
+        });
+
+        connection.off("ChunkProcessed");
+        connection.off("EmbeddingCompleted");
+        connection.off("EmbeddingError");
+        connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
+        connection.on("EmbeddingCompleted", (m) =>
+          handleEmbeddingCompleteMessage(m),
+        );
+        connection.on("EmbeddingError", (m) => handleEmbeddingErrorMessage(m));
+        await startConnection();
+
+        addMessage({
+          type: "system",
+          message: "Connected to SignalR hub. Ready to monitor embeddings.",
+        });
+      } else {
+        addMessage({
+          type: "system",
+          message: `SignalR hub already in state: ${connection.state}`,
+        });
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      addError(`Failed to connect to SignalR hub: ${errorMsg}`);
+      throw err;
+    }
+  };
+
+  const disconnectFromHub = async () => {
+    try {
+      if (connection.state !== signalR.HubConnectionState.Disconnected) {
+        addMessage({
+          type: "system",
+          message: "Disconnecting from SignalR hub...",
+        });
+
+        connection.off("ChunkProcessed");
+        await stopConnection();
+
+        addMessage({
+          type: "system",
+          message: "Disconnected from SignalR hub.",
+        });
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      addError(`Failed to disconnect from SignalR hub: ${errorMsg}`);
+    }
+  };
+
+  const reconnectToHub = async () => {
+    try {
+      addMessage({
+        type: "system",
+        message: "Reconnecting to SignalR hub...",
+      });
+
+      await disconnectFromHub();
+
+      // Wait a moment before reconnecting to ensure cleanup is complete
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      await connectToHub();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      addError(`Failed to reconnect to SignalR hub: ${errorMsg}`);
+    }
+  };
 
   const startEmbedding = async () => {
     if (isProcessing) return;
@@ -164,16 +255,27 @@ function RouteComponent() {
       message: "Starting embedding process...",
     });
 
-    const response = (await apiClient.post("/api/embed")) as ApiResponse<any>;
+    try {
+      // Connect to SignalR after successful API call
+      if (connection.state === signalR.HubConnectionState.Disconnected) {
+        await connectToHub();
+      }
 
-    if (response.ok) {
-      addMessage({
-        type: "api",
-        message: `Embedding process accepted and started (HTTP ${response.status})`,
-      });
-    } else {
-      const errorMsg = `HTTP ${response.status}: ${response.statusText}`;
-      addError(`Failed to start embedding process: ${errorMsg}`);
+      const response = (await apiClient.post("/api/embed")) as ApiResponse<any>;
+
+      if (response.ok) {
+        addMessage({
+          type: "api",
+          message: `Embedding process accepted and started (HTTP ${response.status})`,
+        });
+      } else {
+        const errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+        addError(`Failed to start embedding process: ${errorMsg}`);
+        await disconnectFromHub();
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      addError(`API call failed: ${errorMsg}`);
     }
 
     setIsProcessing(false);
@@ -256,14 +358,42 @@ function RouteComponent() {
         <div className="flex space-x-2">
           <button
             onClick={startEmbedding}
-            disabled={isProcessing || status !== "connected"}
+            disabled={isProcessing}
             className={`px-4 py-2 rounded font-medium ${
-              isProcessing || status !== "connected"
+              isProcessing
                 ? "bg-gray-600 text-gray-400 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700 text-white"
             }`}
           >
             {isProcessing ? "Processing..." : "Start Embedding"}
+          </button>
+          <button
+            onClick={reconnectToHub}
+            disabled={
+              isProcessing ||
+              status === "connecting" ||
+              status === "reconnecting"
+            }
+            className={`px-3 py-2 rounded font-medium ${
+              isProcessing ||
+              status === "connecting" ||
+              status === "reconnecting"
+                ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700 text-white"
+            }`}
+          >
+            Reconnect Hub
+          </button>
+          <button
+            onClick={disconnectFromHub}
+            disabled={isProcessing || status === "disconnected"}
+            className={`px-3 py-2 rounded font-medium ${
+              isProcessing || status === "disconnected"
+                ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                : "bg-red-600 hover:bg-red-700 text-white"
+            }`}
+          >
+            Disconnect Hub
           </button>
           <button
             onClick={clearConsole}
@@ -302,7 +432,8 @@ function RouteComponent() {
       <div className="flex-1 overflow-y-auto p-4 bg-black font-mono text-sm">
         {messages.length === 0 ? (
           <div className="text-gray-500 italic">
-            Console ready. Click "Start Embedding" to begin processing.
+            Console ready. Click "Start Embedding" to begin processing and
+            connect to SignalR.
           </div>
         ) : (
           messages.map((msg) => (
