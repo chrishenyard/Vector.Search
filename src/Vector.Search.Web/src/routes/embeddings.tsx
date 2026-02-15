@@ -141,7 +141,8 @@ function RouteComponent() {
       ) {
         // Remove all event handlers before stopping
         currentConnection.off("ChunkProcessed");
-        currentConnection.off("EmbedCompleted");
+        currentConnection.off("EmbeddingCompleted");
+        currentConnection.off("EmbeddingError");
         await currentConnection.stop();
         console.log("Connection cleaned up successfully");
       }
@@ -157,7 +158,7 @@ function RouteComponent() {
       hubUrl: "/embedhub",
       maxRetries: maxRetries,
       keepAliveInterval: 15000, // 15 seconds - more frequent keep-alive
-      serverTimeout: 30000, // 30 seconds - reduced timeout
+      serverTimeout: 120000, // 120 seconds - increased timeout
       onConnectionStateChange: setStatus,
       onRetryAttempt: handleRetryAttempt,
       onCleanUp: cleanUp,
@@ -214,6 +215,8 @@ function RouteComponent() {
         });
 
         connection.off("ChunkProcessed");
+        connection.off("EmbeddingCompleted");
+        connection.off("EmbeddingError");
         await stopConnection();
 
         addMessage({
@@ -261,7 +264,10 @@ function RouteComponent() {
         await connectToHub();
       }
 
-      const response = (await apiClient.post("/api/embed")) as ApiResponse<any>;
+      const connectionId = connection.connectionId;
+      const response = (await apiClient.post("/api/embed", {
+        connectionId,
+      })) as ApiResponse<any>;
 
       if (response.ok) {
         addMessage({

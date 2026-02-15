@@ -1,8 +1,8 @@
-using AI.Receipts.Services;
 using Serilog;
 using Vector.Search;
 using Vector.Search.Configuration;
 using Vector.Search.Hubs;
+using Vector.Search.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

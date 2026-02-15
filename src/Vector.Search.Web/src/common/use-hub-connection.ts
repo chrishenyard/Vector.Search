@@ -83,15 +83,7 @@ export default function useHubConnection(
       });
     }
     return connectionRef.current;
-  }, [
-    hubUrl,
-    keepAliveInterval,
-    serverTimeout,
-    maxRetries,
-    onConnectionStateChange,
-    onRetryAttempt,
-    onCleanUp,
-  ]);
+  }, [hubUrl]);
 
   const startConnection = useCallback(async () => {
     if (!connection) return;
@@ -111,7 +103,7 @@ export default function useHubConnection(
       onConnectionStateChange?.("disconnected");
       throw error;
     }
-  }, [connection, onConnectionStateChange]);
+  }, [connection, onConnectionStateChange, onRetryAttempt]);
 
   const stopConnection = useCallback(async () => {
     if (!connection) return;
@@ -126,7 +118,7 @@ export default function useHubConnection(
     } catch (error) {
       console.error("Failed to stop SignalR connection:", error);
     }
-  }, [connection, onConnectionStateChange]);
+  }, []);
 
   return { connection, connectionRef, startConnection, stopConnection };
 }

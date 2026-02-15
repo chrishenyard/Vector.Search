@@ -6,10 +6,9 @@ using OllamaSharp;
 using Vector.Files.Chunking;
 using Vector.Search.Hubs;
 using Vector.Search.Models;
-using Vector.Search.Services;
 using Vector.Search.Settings;
 
-namespace AI.Receipts.Services;
+namespace Vector.Search.Services;
 
 public class EndPoints
 {
@@ -75,31 +74,32 @@ public class EndPoints
         });
 
         app.MapPost("/api/embed", async (
+            EmbedRequest request,
             IConfiguration cfg,
             OllamaClient ollama,
             CodeVectorStore vectorStore,
             IChunk chunk,
             IHubContext<ChunkHub> hubContext,
             ILogger<EndPoints> logger,
-            CancellationToken requestAborted) =>
+            HttpContext httpContext) =>
         {
             var operationId = Guid.NewGuid().ToString("N");
 
             _ = Task.Run(async () =>
                 ProcessFilesAsync(
                     operationId,
+                    request.ConnectionId,
                     cfg,
                     ollama,
                     vectorStore,
                     chunk,
                     hubContext,
                     logger,
-                    requestAborted), requestAborted);
+                    httpContext.RequestAborted), httpContext.RequestAborted);
 
             return Results.Accepted(value: new
             {
-                OperationId = operationId,
-                Message = "Embedding started. Track progress via SignalR."
+                OperationId = operationId
             });
         });
 
@@ -117,6 +117,7 @@ public class EndPoints
 
     private static async Task ProcessFilesAsync(
         string operationId,
+        string connectionId,
         IConfiguration cfg,
         OllamaClient ollama,
         CodeVectorStore vectorStore,
@@ -134,6 +135,7 @@ public class EndPoints
         var files = Directory.EnumerateFiles(rootPath, "*.*", SearchOption.AllDirectories)
             .Where(p => extensions.Any(ext => p.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
             .ToList();
+
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(requestAborted);
         var token = cts.Token;
 
@@ -156,11 +158,6 @@ public class EndPoints
                 if (token.IsCancellationRequested)
                     break;
 
-                await hubContext.Clients.All.SendCoreAsync(
-                    "ChunkProcessed",
-                    [new { OperationId = operationId, FilePath = file, Indexed = 0 }],
-                    token);
-
                 await chunk.GetChunksAsync(writePath, rootPath, extensions, token);
                 var chunks = Directory.EnumerateFiles(writePath, "*.*");
 
@@ -168,16 +165,6 @@ public class EndPoints
                 {
                     var content = await File.ReadAllTextAsync(batch, ct);
                     var embeddings = await ollama.EmbedAsync($"{batch}\n{content}", ct);
-                    //await hubContext.Clients.All.SendCoreAsync("ChunkProcessed", [batch], token);
-
-                    // Optional: per-chunk updates
-                    //var perChunkMessage = new ChunkUpdateMessage
-                    //{
-                    //    FilePath = batch,
-                    //    Embeddings = [.. embeddings]
-                    //};
-                    //chunkUpdateMessages[0] = perChunkMessage;
-                    //await hubContext.Clients.All.SendCoreAsync("ChunkProcessed", chunkUpdateMessages, ct);
 
                     var record = new CodeChunkRecord
                     {
@@ -193,13 +180,18 @@ public class EndPoints
 
                     // Persist records for this batch (batched upsert can be added later)
                     //await vectorStore.UpsertAsync(new[] { record }, ct);
+
+                    await hubContext.Clients.Client(connectionId).SendAsync(
+                        "ChunkProcessed",
+                        new { OperationId = operationId, FilePath = batch, Indexed = total },
+                        ct);
+
                 });
             }
 
-            // Final status message
-            await hubContext.Clients.All.SendCoreAsync(
+            await hubContext.Clients.Client(connectionId).SendAsync(
                 "EmbeddingCompleted",
-                [new { OperationId = operationId, Indexed = total }],
+                new { OperationId = operationId, Indexed = total },
                 token);
         }
         catch (Exception ex)
@@ -207,9 +199,9 @@ public class EndPoints
             logger.LogError(ex, "Background embedding operation {OperationId} failed", operationId);
             try
             {
-                await hubContext.Clients.All.SendCoreAsync(
+                await hubContext.Clients.Client(connectionId).SendAsync(
                     "EmbeddingError",
-                    [new { OperationId = operationId, Error = ex.Message }],
+                    new { OperationId = operationId, Error = ex.Message },
                     CancellationToken.None);
             }
             catch
