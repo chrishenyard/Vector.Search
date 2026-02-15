@@ -85,6 +85,11 @@ public class EndPoints
         {
             var operationId = Guid.NewGuid().ToString("N");
 
+            await hubContext.Clients.Client(request.ConnectionId).SendAsync(
+                "ChunkProcessed",
+                new { OperationId = operationId, FilePath = string.Empty },
+                httpContext.RequestAborted);
+
             _ = Task.Run(async () =>
                 ProcessFilesAsync(
                     operationId,

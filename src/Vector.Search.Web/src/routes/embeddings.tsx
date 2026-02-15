@@ -139,11 +139,17 @@ function RouteComponent() {
         (currentConnection.state === signalR.HubConnectionState.Reconnecting &&
           attempts >= maxRetries)
       ) {
-        // Remove all event handlers before stopping
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+
         currentConnection.off("ChunkProcessed");
         currentConnection.off("EmbeddingCompleted");
         currentConnection.off("EmbeddingError");
-        await currentConnection.stop();
+
+        await currentConnection.stop().catch((err) => {
+          addError(
+            `Error stopping connection during cleanup: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
         console.log("Connection cleaned up successfully");
       }
     } catch (err) {
@@ -151,7 +157,7 @@ function RouteComponent() {
         `Connection cleanup failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
-  }, [addError]);
+  }, []);
 
   const { connection, connectionRef, startConnection, stopConnection } =
     useHubConnection({
@@ -164,14 +170,12 @@ function RouteComponent() {
       onCleanUp: cleanUp,
     });
 
-  // Clean up connection on unmount
-  useEffect(() => {
-    return () => {
-      cleanUp();
-    };
-  }, [cleanUp]);
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    event.preventDefault();
+    cleanUp();
+  };
 
-  const connectToHub = async () => {
+  const connectToHub = useCallback(async () => {
     try {
       if (connection.state === signalR.HubConnectionState.Disconnected) {
         addMessage({
@@ -204,9 +208,9 @@ function RouteComponent() {
       addError(`Failed to connect to SignalR hub: ${errorMsg}`);
       throw err;
     }
-  };
+  }, []);
 
-  const disconnectFromHub = async () => {
+  const disconnectFromHub = useCallback(async () => {
     try {
       if (connection.state !== signalR.HubConnectionState.Disconnected) {
         addMessage({
@@ -228,9 +232,9 @@ function RouteComponent() {
       const errorMsg = err instanceof Error ? err.message : String(err);
       addError(`Failed to disconnect from SignalR hub: ${errorMsg}`);
     }
-  };
+  }, []);
 
-  const reconnectToHub = async () => {
+  const reconnectToHub = useCallback(async () => {
     try {
       addMessage({
         type: "system",
@@ -247,9 +251,9 @@ function RouteComponent() {
       const errorMsg = err instanceof Error ? err.message : String(err);
       addError(`Failed to reconnect to SignalR hub: ${errorMsg}`);
     }
-  };
+  }, []);
 
-  const startEmbedding = async () => {
+  const startEmbedding = useCallback(async () => {
     if (isProcessing) return;
 
     setIsProcessing(true);
@@ -285,7 +289,7 @@ function RouteComponent() {
     }
 
     setIsProcessing(false);
-  };
+  }, []);
 
   const clearConsole = () => {
     setMessages([]);
@@ -304,6 +308,8 @@ function RouteComponent() {
       fractionalSecondDigits: 3,
     });
   };
+
+  window.addEventListener("beforeunload", handleBeforeUnload);
 
   const getMessageColor = (type: ConsoleMessage["type"]) => {
     switch (type) {
