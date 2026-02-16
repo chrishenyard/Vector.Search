@@ -21,6 +21,11 @@ function EmbeddingsRoute() {
   const attemptsRef = useRef(0);
   const maxRetries = 5;
 
+  // Maximum number of messages to keep in the console buffer
+  const MAX_CONSOLE_MESSAGES = 150;
+  // Maximum number of errors to keep in the global errors buffer
+  const MAX_GLOBAL_ERRORS = 50;
+
   const addMessage = useCallback(
     (message: Omit<ConsoleMessage, "id" | "timestamp">) => {
       const newMessage: ConsoleMessage = {
@@ -28,17 +33,27 @@ function EmbeddingsRoute() {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, newMessage]);
+      setMessages((prev) => {
+        const newMessages = [...prev, newMessage];
+        // Keep only the most recent messages, removing old ones if we exceed the limit
+        return newMessages.length > MAX_CONSOLE_MESSAGES
+          ? newMessages.slice(-MAX_CONSOLE_MESSAGES)
+          : newMessages;
+      });
     },
     [],
   );
 
   const addError = useCallback(
     (error: string) => {
-      setGlobalErrors((prev) => [
-        ...prev,
-        `${new Date().toLocaleTimeString()}: ${error}`,
-      ]);
+      const timestampedError = `${new Date().toLocaleTimeString()}: ${error}`;
+      setGlobalErrors((prev) => {
+        const newErrors = [...prev, timestampedError];
+        // Keep only the most recent errors, removing old ones if we exceed the limit
+        return newErrors.length > MAX_GLOBAL_ERRORS
+          ? newErrors.slice(-MAX_GLOBAL_ERRORS)
+          : newErrors;
+      });
       addMessage({
         type: "error",
         message: error,
@@ -70,7 +85,7 @@ function EmbeddingsRoute() {
         data: msg,
       });
     },
-    [],
+    [addMessage],
   );
 
   const handleEmbeddingCompleteMessage = useCallback(
@@ -90,9 +105,9 @@ function EmbeddingsRoute() {
         data: msg,
       });
 
-      disconnectFromHub();
+      // Note: disconnectFromHub will be handled after this message
     },
-    [],
+    [addMessage],
   );
 
   const handleEmbeddingErrorMessage = useCallback(
@@ -112,9 +127,9 @@ function EmbeddingsRoute() {
         data: msg,
       });
 
-      disconnectFromHub();
+      // Note: disconnectFromHub will be handled after this message
     },
-    [],
+    [addMessage],
   );
 
   const handleRetryAttempt = useCallback((attempt: number, message: string) => {
@@ -125,7 +140,7 @@ function EmbeddingsRoute() {
       type: "system",
       message: message,
     });
-  }, []);
+  }, [addMessage]);
 
   const cleanUp = useCallback(() => {
     const currentConnection = connectionRef.current;
@@ -151,7 +166,7 @@ function EmbeddingsRoute() {
       });
       console.log("Connection cleaned up successfully");
     }
-  }, []);
+  }, [addError]);
 
   const { connection, connectionRef, startConnection, stopConnection } =
     useHubConnection({
@@ -168,45 +183,6 @@ function EmbeddingsRoute() {
     event.preventDefault();
     cleanUp();
   };
-
-  const connectToHub = useCallback(async () => {
-    try {
-      if (connection.state === signalR.HubConnectionState.Disconnected) {
-        addMessage({
-          type: "system",
-          message: "Connecting to SignalR hub...",
-        });
-
-        connection.off("ChunkProcessed");
-        connection.off("EmbeddingCompleted");
-        connection.off("EmbeddingError");
-
-        connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
-        connection.on("EmbeddingCompleted", (m) =>
-          handleEmbeddingCompleteMessage(m),
-        );
-        connection.on("EmbeddingError", (m) => handleEmbeddingErrorMessage(m));
-
-        await startConnection();
-        const msg: string = await connection.invoke("Start");
-        console.log("Start method invoked on hub, response:", msg);
-
-        addMessage({
-          type: "system",
-          message: "Connected to SignalR hub. Ready to monitor embeddings.",
-        });
-      } else {
-        addMessage({
-          type: "system",
-          message: `SignalR hub already in state: ${connection.state}`,
-        });
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      addError(`Failed to connect to SignalR hub: ${errorMsg}`);
-      throw err;
-    }
-  }, []);
 
   const disconnectFromHub = useCallback(async () => {
     try {
@@ -230,7 +206,56 @@ function EmbeddingsRoute() {
       const errorMsg = err instanceof Error ? err.message : String(err);
       addError(`Failed to disconnect from SignalR hub: ${errorMsg}`);
     }
-  }, []);
+  }, [connection, stopConnection, addMessage, addError]);
+
+  const connectToHub = useCallback(async () => {
+    try {
+      if (connection.state === signalR.HubConnectionState.Disconnected) {
+        addMessage({
+          type: "system",
+          message: "Connecting to SignalR hub...",
+        });
+
+        connection.off("ChunkProcessed");
+        connection.off("EmbeddingCompleted");
+        connection.off("EmbeddingError");
+
+        connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
+        connection.on("EmbeddingCompleted", (m) => {
+          handleEmbeddingCompleteMessage(m);
+          // Auto-disconnect after completion
+          setTimeout(() => {
+            stopConnection().catch(console.error);
+          }, 1000);
+        });
+        connection.on("EmbeddingError", (m) => {
+          handleEmbeddingErrorMessage(m);
+          // Auto-disconnect after error
+          setTimeout(() => {
+            stopConnection().catch(console.error);
+          }, 1000);
+        });
+
+        await startConnection();
+        const msg: string = await connection.invoke("Start");
+        console.log("Start method invoked on hub, response:", msg);
+
+        addMessage({
+          type: "system",
+          message: "Connected to SignalR hub. Ready to monitor embeddings.",
+        });
+      } else {
+        addMessage({
+          type: "system",
+          message: `SignalR hub already in state: ${connection.state}`,
+        });
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      addError(`Failed to connect to SignalR hub: ${errorMsg}`);
+      throw err;
+    }
+  }, [connection, startConnection, stopConnection, addMessage, addError, handleChunkMessage, handleEmbeddingCompleteMessage, handleEmbeddingErrorMessage]);
 
   const reconnectToHub = useCallback(async () => {
     try {
@@ -239,17 +264,50 @@ function EmbeddingsRoute() {
         message: "Reconnecting to SignalR hub...",
       });
 
-      await disconnectFromHub();
+      // Disconnect
+      if (connection.state !== signalR.HubConnectionState.Disconnected) {
+        connection.off("ChunkProcessed");
+        connection.off("EmbeddingCompleted");
+        connection.off("EmbeddingError");
+        await stopConnection();
+        addMessage({
+          type: "system",
+          message: "Disconnected from SignalR hub for reconnection.",
+        });
+      }
 
       // Wait a moment before reconnecting to ensure cleanup is complete
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      await connectToHub();
+      // Reconnect
+      await startConnection();
+      
+      connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
+      connection.on("EmbeddingCompleted", (m) => {
+        handleEmbeddingCompleteMessage(m);
+        setTimeout(() => {
+          stopConnection().catch(console.error);
+        }, 1000);
+      });
+      connection.on("EmbeddingError", (m) => {
+        handleEmbeddingErrorMessage(m);
+        setTimeout(() => {
+          stopConnection().catch(console.error);
+        }, 1000);
+      });
+
+      const msg: string = await connection.invoke("Start");
+      console.log("Start method invoked on hub, response:", msg);
+
+      addMessage({
+        type: "system",
+        message: "Reconnected to SignalR hub successfully.",
+      });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       addError(`Failed to reconnect to SignalR hub: ${errorMsg}`);
     }
-  }, []);
+  }, [connection, startConnection, stopConnection, addMessage, addError, handleChunkMessage, handleEmbeddingCompleteMessage, handleEmbeddingErrorMessage]);
 
   const startEmbedding = useCallback(async () => {
     if (isProcessing) return;
@@ -288,7 +346,7 @@ function EmbeddingsRoute() {
     }
 
     setIsProcessing(false);
-  }, []);
+  }, [isProcessing, connection, connectToHub, addMessage, addError, disconnectFromHub]);
 
   const clearConsole = () => {
     setMessages([]);
@@ -308,7 +366,12 @@ function EmbeddingsRoute() {
     });
   };
 
-  window.addEventListener("beforeunload", handleBeforeUnload);
+  useEffect(() => {
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   const getMessageColor = (type: ConsoleMessage["type"]) => {
     switch (type) {
@@ -430,7 +493,7 @@ function EmbeddingsRoute() {
             </button>
           </div>
           <div className="mt-2 max-h-20 overflow-y-auto">
-            {globalErrors.slice(-5).map((error, index) => (
+            {globalErrors.map((error, index) => (
               <div key={index} className="text-red-300 text-sm font-mono">
                 {error}
               </div>
@@ -466,8 +529,18 @@ function EmbeddingsRoute() {
 
       {/* Status Bar */}
       <div className="bg-gray-800 p-2 border-t border-gray-700 text-xs text-gray-400 flex justify-between">
-        <span>Messages: {messages.length}</span>
-        <span>Errors: {globalErrors.length}</span>
+        <span>
+          Messages: {messages.length}
+          {messages.length >= MAX_CONSOLE_MESSAGES
+            ? ` (showing last ${MAX_CONSOLE_MESSAGES})`
+            : ""}
+        </span>
+        <span>
+          Errors: {globalErrors.length}
+          {globalErrors.length >= MAX_GLOBAL_ERRORS
+            ? ` (showing last ${MAX_GLOBAL_ERRORS})`
+            : ""}
+        </span>
         <span>Hub: /embeddinghub</span>
       </div>
     </div>
