@@ -132,15 +132,18 @@ function EmbeddingsRoute() {
     [addMessage],
   );
 
-  const handleRetryAttempt = useCallback((attempt: number, message: string) => {
-    attemptsRef.current = attempt;
-    setRetryAttempt(attempt);
-    setRetryMessage(message);
-    addMessage({
-      type: "system",
-      message: message,
-    });
-  }, [addMessage]);
+  const handleRetryAttempt = useCallback(
+    (attempt: number, message: string) => {
+      attemptsRef.current = attempt;
+      setRetryAttempt(attempt);
+      setRetryMessage(message);
+      addMessage({
+        type: "system",
+        message: message,
+      });
+    },
+    [addMessage],
+  );
 
   const cleanUp = useCallback(() => {
     const currentConnection = connectionRef.current;
@@ -255,7 +258,16 @@ function EmbeddingsRoute() {
       addError(`Failed to connect to SignalR hub: ${errorMsg}`);
       throw err;
     }
-  }, [connection, startConnection, stopConnection, addMessage, addError, handleChunkMessage, handleEmbeddingCompleteMessage, handleEmbeddingErrorMessage]);
+  }, [
+    connection,
+    startConnection,
+    stopConnection,
+    addMessage,
+    addError,
+    handleChunkMessage,
+    handleEmbeddingCompleteMessage,
+    handleEmbeddingErrorMessage,
+  ]);
 
   const reconnectToHub = useCallback(async () => {
     try {
@@ -281,7 +293,7 @@ function EmbeddingsRoute() {
 
       // Reconnect
       await startConnection();
-      
+
       connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
       connection.on("EmbeddingCompleted", (m) => {
         handleEmbeddingCompleteMessage(m);
@@ -307,7 +319,16 @@ function EmbeddingsRoute() {
       const errorMsg = err instanceof Error ? err.message : String(err);
       addError(`Failed to reconnect to SignalR hub: ${errorMsg}`);
     }
-  }, [connection, startConnection, stopConnection, addMessage, addError, handleChunkMessage, handleEmbeddingCompleteMessage, handleEmbeddingErrorMessage]);
+  }, [
+    connection,
+    startConnection,
+    stopConnection,
+    addMessage,
+    addError,
+    handleChunkMessage,
+    handleEmbeddingCompleteMessage,
+    handleEmbeddingErrorMessage,
+  ]);
 
   const startEmbedding = useCallback(async () => {
     if (isProcessing) return;
@@ -346,7 +367,14 @@ function EmbeddingsRoute() {
     }
 
     setIsProcessing(false);
-  }, [isProcessing, connection, connectToHub, addMessage, addError, disconnectFromHub]);
+  }, [
+    isProcessing,
+    connection,
+    connectToHub,
+    addMessage,
+    addError,
+    disconnectFromHub,
+  ]);
 
   const clearConsole = () => {
     setMessages([]);
