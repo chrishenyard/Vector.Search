@@ -79,7 +79,7 @@ public class EndPoints
             OllamaClient ollama,
             CodeVectorStore vectorStore,
             IChunk chunk,
-            IHubContext<ChunkHub> hubContext,
+            IHubContext<EmbeddingHub> hubContext,
             ILogger<EndPoints> logger,
             HttpContext httpContext) =>
         {
@@ -127,7 +127,7 @@ public class EndPoints
         OllamaClient ollama,
         CodeVectorStore vectorStore,
         IChunk chunk,
-        IHubContext<ChunkHub> hubContext,
+        IHubContext<EmbeddingHub> hubContext,
         ILogger<EndPoints> logger,
         CancellationToken requestAborted)
     {

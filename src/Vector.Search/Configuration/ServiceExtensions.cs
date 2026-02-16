@@ -66,9 +66,12 @@ public static class ServiceExtensions
 
     public static IServiceCollection AddServices(this IServiceCollection services, IConfiguration config)
     {
+        var qdrantTimeout = config.GetValue<int>(config["QDRANMT_TIMEOUT"]!);
         var qdrantHost = config["QDRANT_HOST"]!;
+        var qdrantClient = new Qdrant.Client.QdrantClient(qdrantHost, grpcTimeout: TimeSpan.FromSeconds(qdrantTimeout));
 
-        services.AddScoped<IChunk, CodeChunking>()
+        services.AddSingleton(qdrantClient)
+            .AddScoped<IChunk, CodeChunking>()
             .AddQdrantVectorStore(host: qdrantHost, https: false);
 
         services.AddScoped<IOllamaClientFactory, OllamaClientFactory>();

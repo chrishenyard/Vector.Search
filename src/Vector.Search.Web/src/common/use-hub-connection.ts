@@ -60,27 +60,9 @@ export default function useHubConnection(
           },
         })
         .configureLogging(signalR.LogLevel.Debug)
-        .withKeepAliveInterval(keepAliveInterval)
-        .withServerTimeout(serverTimeout)
+        .withKeepAliveInterval(5000) // 5 seconds
+        .withServerTimeout(5000) // 5 seconds
         .build();
-
-      // Set up connection event handlers once
-      connectionRef.current.onclose((error) => {
-        console.log("SignalR connection closed", error);
-        retryCountRef.current = 0;
-        onConnectionStateChange?.("disconnected");
-      });
-
-      connectionRef.current.onreconnecting((error) => {
-        console.log("SignalR reconnecting", error);
-        onConnectionStateChange?.("reconnecting");
-      });
-
-      connectionRef.current.onreconnected((connectionId) => {
-        console.log("SignalR reconnected", connectionId);
-        retryCountRef.current = 0;
-        onConnectionStateChange?.("connected");
-      });
     }
     return connectionRef.current;
   }, [hubUrl]);
@@ -103,7 +85,7 @@ export default function useHubConnection(
       onConnectionStateChange?.("disconnected");
       throw error;
     }
-  }, [connection, onConnectionStateChange, onRetryAttempt]);
+  }, [connection, onConnectionStateChange, onRetryAttempt, maxRetries]);
 
   const stopConnection = useCallback(async () => {
     if (!connection) return;

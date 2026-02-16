@@ -7,10 +7,10 @@ import apiClient from "../services/api";
 import { ApiResponse } from "../types/api-response-types";
 
 export const Route = createFileRoute("/embeddings")({
-  component: RouteComponent,
+  component: EmbeddingsRoute,
 });
 
-function RouteComponent() {
+function EmbeddingsRoute() {
   const [status, setStatus] = useState("disconnected");
   const [messages, setMessages] = useState<ConsoleMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -127,41 +127,35 @@ function RouteComponent() {
     });
   }, []);
 
-  const cleanUp = useCallback(async () => {
+  const cleanUp = useCallback(() => {
     const currentConnection = connectionRef.current;
     const attempts = attemptsRef.current;
 
     if (!currentConnection) return;
 
-    try {
-      if (
-        currentConnection.state === signalR.HubConnectionState.Connected ||
-        (currentConnection.state === signalR.HubConnectionState.Reconnecting &&
-          attempts >= maxRetries)
-      ) {
-        window.removeEventListener("beforeunload", handleBeforeUnload);
+    if (
+      currentConnection.state === signalR.HubConnectionState.Connected ||
+      (currentConnection.state === signalR.HubConnectionState.Reconnecting &&
+        attempts >= maxRetries)
+    ) {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
 
-        currentConnection.off("ChunkProcessed");
-        currentConnection.off("EmbeddingCompleted");
-        currentConnection.off("EmbeddingError");
+      currentConnection.off("ChunkProcessed");
+      currentConnection.off("EmbeddingCompleted");
+      currentConnection.off("EmbeddingError");
 
-        await currentConnection.stop().catch((err) => {
-          addError(
-            `Error stopping connection during cleanup: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        });
-        console.log("Connection cleaned up successfully");
-      }
-    } catch (err) {
-      addError(
-        `Connection cleanup failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      currentConnection.stop().catch((err) => {
+        addError(
+          `Error stopping connection during cleanup: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+      console.log("Connection cleaned up successfully");
     }
   }, []);
 
   const { connection, connectionRef, startConnection, stopConnection } =
     useHubConnection({
-      hubUrl: "/embedhub",
+      hubUrl: "/embeddinghub",
       maxRetries: maxRetries,
       keepAliveInterval: 15000, // 15 seconds - more frequent keep-alive
       serverTimeout: 120000, // 120 seconds - increased timeout
@@ -186,12 +180,16 @@ function RouteComponent() {
         connection.off("ChunkProcessed");
         connection.off("EmbeddingCompleted");
         connection.off("EmbeddingError");
+
         connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
         connection.on("EmbeddingCompleted", (m) =>
           handleEmbeddingCompleteMessage(m),
         );
         connection.on("EmbeddingError", (m) => handleEmbeddingErrorMessage(m));
+
         await startConnection();
+        const msg: string = await connection.invoke("Start");
+        console.log("Start method invoked on hub, response:", msg);
 
         addMessage({
           type: "system",
@@ -269,6 +267,7 @@ function RouteComponent() {
       }
 
       const connectionId = connection.connectionId;
+      console.log("Current SignalR connection ID:", connectionId);
       const response = (await apiClient.post("/api/embed", {
         connectionId,
       })) as ApiResponse<any>;
@@ -469,7 +468,7 @@ function RouteComponent() {
       <div className="bg-gray-800 p-2 border-t border-gray-700 text-xs text-gray-400 flex justify-between">
         <span>Messages: {messages.length}</span>
         <span>Errors: {globalErrors.length}</span>
-        <span>Hub: /embedhub</span>
+        <span>Hub: /embeddinghub</span>
       </div>
     </div>
   );

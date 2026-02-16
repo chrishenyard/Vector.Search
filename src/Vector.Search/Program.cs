@@ -39,8 +39,7 @@ builder.Services
     .AddSignalR(options =>
     {
         options.EnableDetailedErrors = true;
-        options.KeepAliveInterval = TimeSpan.FromSeconds(5);
-        options.ClientTimeoutInterval = TimeSpan.FromSeconds(5);
+        options.KeepAliveInterval = TimeSpan.FromSeconds(30);
     })
     .AddNewtonsoftJsonProtocol();
 
@@ -59,7 +58,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseExceptionHandler();
 app.UseAntiforgery();
-app.MapHub<ChunkHub>("/embedhub");
+app.MapHub<EmbeddingHub>("/embeddinghub");
 
 EndPoints.Map(app);
 app.Run();
