@@ -5,6 +5,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Vector.Files.Chunking;
+using Vector.Search.Health;
 using Vector.Search.Services;
 using Vector.Search.Settings;
 
@@ -179,5 +180,13 @@ public static class ServiceExtensions
         builder.Configuration.AddConfiguration(configuration);
 
         return builder;
+    }
+
+    public static IServiceCollection AddHealthCheck(this IServiceCollection services)
+    {
+        services.AddHealthChecks()
+            .AddCheck<AppHealthCheck>("app_health_check");
+
+        return services;
     }
 }

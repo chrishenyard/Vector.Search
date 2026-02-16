@@ -36,6 +36,7 @@ builder.Services
     .AddSettings()
     .AddHttp(configuration)
     .AddServices(configuration)
+    .AddHealthCheck()
     .AddSignalR(options =>
     {
         options.EnableDetailedErrors = true;
@@ -58,6 +59,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseExceptionHandler();
 app.UseAntiforgery();
+app.MapHealthChecks("/health");
 app.MapHub<EmbeddingHub>("/embeddinghub");
 
 EndPoints.Map(app);

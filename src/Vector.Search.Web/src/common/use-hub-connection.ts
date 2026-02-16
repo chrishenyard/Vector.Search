@@ -61,7 +61,7 @@ export default function useHubConnection(
         })
         .configureLogging(signalR.LogLevel.Debug)
         .withKeepAliveInterval(5000) // 5 seconds
-        .withServerTimeout(5000) // 5 seconds
+        .withServerTimeout(10000) // 10 seconds. Should be double the keepAliveInterval
         .build();
     }
     return connectionRef.current;
@@ -70,35 +70,32 @@ export default function useHubConnection(
   const startConnection = useCallback(async () => {
     if (!connection) return;
 
-    try {
-      if (connection.state === signalR.HubConnectionState.Disconnected) {
-        console.log("Starting SignalR connection...");
-        onConnectionStateChange?.("connecting");
-        await connection.start();
-        console.log("SignalR connection started");
+    if (connection.state === signalR.HubConnectionState.Disconnected) {
+      connection.onreconnected((connectionId) => {
+        console.log(`Reconnected with connection ID: ${connectionId}`);
+        retryCountRef.current = 0;
         onConnectionStateChange?.("connected");
-      } else {
-        console.log(`Connection already in state: ${connection.state}`);
-      }
-    } catch (error) {
-      console.error("Failed to start SignalR connection:", error);
-      onConnectionStateChange?.("disconnected");
-      throw error;
+        connection.invoke("Start");
+      });
+
+      console.log("Starting SignalR connection...");
+      onConnectionStateChange?.("connecting");
+      await connection.start();
+      console.log("SignalR connection started");
+      onConnectionStateChange?.("connected");
     }
   }, [connection, onConnectionStateChange, onRetryAttempt, maxRetries]);
 
   const stopConnection = useCallback(async () => {
     if (!connection) return;
 
-    try {
-      if (connection.state !== signalR.HubConnectionState.Disconnected) {
-        console.log("Stopping SignalR connection...");
-        await connection.stop();
-        console.log("SignalR connection stopped");
-        onConnectionStateChange?.("disconnected");
-      }
-    } catch (error) {
-      console.error("Failed to stop SignalR connection:", error);
+    if (connection.state !== signalR.HubConnectionState.Disconnected) {
+      console.log("Stopping SignalR connection...");
+      await connection.stop().catch((error) => {
+        console.error("Error while stopping SignalR connection:", error);
+      });
+      console.log("SignalR connection stopped");
+      onConnectionStateChange?.("disconnected");
     }
   }, []);
 

@@ -85,7 +85,7 @@ function EmbeddingsRoute() {
         data: msg,
       });
     },
-    [addMessage],
+    [],
   );
 
   const handleEmbeddingCompleteMessage = useCallback(
@@ -107,7 +107,7 @@ function EmbeddingsRoute() {
 
       // Note: disconnectFromHub will be handled after this message
     },
-    [addMessage],
+    [],
   );
 
   const handleEmbeddingErrorMessage = useCallback(
@@ -129,21 +129,18 @@ function EmbeddingsRoute() {
 
       // Note: disconnectFromHub will be handled after this message
     },
-    [addMessage],
+    [],
   );
 
-  const handleRetryAttempt = useCallback(
-    (attempt: number, message: string) => {
-      attemptsRef.current = attempt;
-      setRetryAttempt(attempt);
-      setRetryMessage(message);
-      addMessage({
-        type: "system",
-        message: message,
-      });
-    },
-    [addMessage],
-  );
+  const handleRetryAttempt = useCallback((attempt: number, message: string) => {
+    attemptsRef.current = attempt;
+    setRetryAttempt(attempt);
+    setRetryMessage(message);
+    addMessage({
+      type: "system",
+      message: message,
+    });
+  }, []);
 
   const cleanUp = useCallback(() => {
     const currentConnection = connectionRef.current;
@@ -169,7 +166,7 @@ function EmbeddingsRoute() {
       });
       console.log("Connection cleaned up successfully");
     }
-  }, [addError]);
+  }, []);
 
   const { connection, connectionRef, startConnection, stopConnection } =
     useHubConnection({
@@ -209,65 +206,7 @@ function EmbeddingsRoute() {
       const errorMsg = err instanceof Error ? err.message : String(err);
       addError(`Failed to disconnect from SignalR hub: ${errorMsg}`);
     }
-  }, [connection, stopConnection, addMessage, addError]);
-
-  const connectToHub = useCallback(async () => {
-    try {
-      if (connection.state === signalR.HubConnectionState.Disconnected) {
-        addMessage({
-          type: "system",
-          message: "Connecting to SignalR hub...",
-        });
-
-        connection.off("ChunkProcessed");
-        connection.off("EmbeddingCompleted");
-        connection.off("EmbeddingError");
-
-        connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
-        connection.on("EmbeddingCompleted", (m) => {
-          handleEmbeddingCompleteMessage(m);
-          // Auto-disconnect after completion
-          setTimeout(() => {
-            stopConnection().catch(console.error);
-          }, 1000);
-        });
-        connection.on("EmbeddingError", (m) => {
-          handleEmbeddingErrorMessage(m);
-          // Auto-disconnect after error
-          setTimeout(() => {
-            stopConnection().catch(console.error);
-          }, 1000);
-        });
-
-        await startConnection();
-        const msg: string = await connection.invoke("Start");
-        console.log("Start method invoked on hub, response:", msg);
-
-        addMessage({
-          type: "system",
-          message: "Connected to SignalR hub. Ready to monitor embeddings.",
-        });
-      } else {
-        addMessage({
-          type: "system",
-          message: `SignalR hub already in state: ${connection.state}`,
-        });
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      addError(`Failed to connect to SignalR hub: ${errorMsg}`);
-      throw err;
-    }
-  }, [
-    connection,
-    startConnection,
-    stopConnection,
-    addMessage,
-    addError,
-    handleChunkMessage,
-    handleEmbeddingCompleteMessage,
-    handleEmbeddingErrorMessage,
-  ]);
+  }, []);
 
   const reconnectToHub = useCallback(async () => {
     try {
@@ -319,16 +258,7 @@ function EmbeddingsRoute() {
       const errorMsg = err instanceof Error ? err.message : String(err);
       addError(`Failed to reconnect to SignalR hub: ${errorMsg}`);
     }
-  }, [
-    connection,
-    startConnection,
-    stopConnection,
-    addMessage,
-    addError,
-    handleChunkMessage,
-    handleEmbeddingCompleteMessage,
-    handleEmbeddingErrorMessage,
-  ]);
+  }, []);
 
   const startEmbedding = useCallback(async () => {
     if (isProcessing) return;
@@ -340,13 +270,9 @@ function EmbeddingsRoute() {
     });
 
     try {
-      // Connect to SignalR after successful API call
-      if (connection.state === signalR.HubConnectionState.Disconnected) {
-        await connectToHub();
-      }
-
       const connectionId = connection.connectionId;
       console.log("Current SignalR connection ID:", connectionId);
+
       const response = (await apiClient.post("/api/embed", {
         connectionId,
       })) as ApiResponse<any>;
@@ -359,22 +285,14 @@ function EmbeddingsRoute() {
       } else {
         const errorMsg = `HTTP ${response.status}: ${response.statusText}`;
         addError(`Failed to start embedding process: ${errorMsg}`);
-        await disconnectFromHub();
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       addError(`API call failed: ${errorMsg}`);
+    } finally {
+      setIsProcessing(false);
     }
-
-    setIsProcessing(false);
-  }, [
-    isProcessing,
-    connection,
-    connectToHub,
-    addMessage,
-    addError,
-    disconnectFromHub,
-  ]);
+  }, []);
 
   const clearConsole = () => {
     setMessages([]);
@@ -395,11 +313,39 @@ function EmbeddingsRoute() {
   };
 
   useEffect(() => {
+    (async () => {
+      try {
+        if (connection.state === signalR.HubConnectionState.Disconnected) {
+          connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
+          connection.on("EmbeddingCompleted", (m) =>
+            handleEmbeddingCompleteMessage(m),
+          );
+          connection.on("EmbeddingError", (m) =>
+            handleEmbeddingErrorMessage(m),
+          );
+
+          await startConnection();
+
+          const msg: string = await connection.invoke("Start");
+          console.log("Start method invoked on hub, response:", msg);
+
+          addMessage({
+            type: "system",
+            message: "Connected to SignalR hub. Ready to monitor embeddings.",
+          });
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        addError(`Failed to connect to SignalR hub: ${errorMsg}`);
+      }
+    })();
+
     window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      cleanUp();
     };
-  }, []);
+  }, [connection]);
 
   const getMessageColor = (type: ConsoleMessage["type"]) => {
     switch (type) {
