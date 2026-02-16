@@ -89,7 +89,7 @@ function EmbeddingsRoute() {
   );
 
   const handleEmbeddingCompleteMessage = useCallback(
-    (msg: { operationId: string; indexed: number }) => {
+    async (msg: { operationId: string; indexed: number }) => {
       if (!msg) {
         addMessage({
           type: "signalr",
@@ -105,7 +105,10 @@ function EmbeddingsRoute() {
         data: msg,
       });
 
-      // Note: disconnectFromHub will be handled after this message
+      connection.off("ChunkProcessed");
+      connection.off("EmbeddingCompleted");
+      connection.off("EmbeddingError");
+      await stopConnection();
     },
     [],
   );
@@ -270,6 +273,15 @@ function EmbeddingsRoute() {
     });
 
     try {
+      const healthy = (await apiClient.get("/health")) as ApiResponse<any>;
+
+      if (!healthy.ok) {
+        const errorMsg = `API health check failed: ${healthy.statusText}`;
+        addError(errorMsg);
+        setIsProcessing(false);
+        return;
+      }
+
       const connectionId = connection.connectionId;
       console.log("Current SignalR connection ID:", connectionId);
 
