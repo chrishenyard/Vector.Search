@@ -192,8 +192,7 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
 
     public static string ToSha256(string input)
     {
-        using var sha = SHA256.Create();
-        var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(input));
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
