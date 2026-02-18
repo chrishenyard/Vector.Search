@@ -35,6 +35,8 @@ services:
         condition: service_started
       qdrant:
         condition: service_healthy
+      pgvector:
+        condition: service_healthy
     user: "1654:1654"
 
   ollama:
@@ -120,6 +122,35 @@ services:
       retries: 3
       start_period: 15s
 
+  pgvector:
+    image: pgvector/pgvector:pg18
+    container_name: pgvector
+    restart: always
+    ports:
+      - 5432:5432
+    networks:
+      - vector_search_network
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=vector_search 
+    volumes:
+      - ./db.sql:/docker-entrypoint-initdb.d/db.sql
+      - pgvector:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+ 
+  adminer:
+    image: adminer:5.4.2-standalone
+    restart: always
+    ports:
+      - 9000:8080
+    networks:
+      - vector_search_network
+
 networks:
   vector_search_network:
     driver: bridge
@@ -135,3 +166,4 @@ volumes:
   open-webui:
   qdrant_data:
   repo:
+  pgvector:

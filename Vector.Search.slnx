@@ -8,6 +8,7 @@
     <File Path=".env" />
     <File Path="Docker-Compose-Down.ps1" />
     <File Path="Docker-Compose-Up.ps1" />
+    <File Path="db.sql" />
     <File Path="LICENSE" />
     <File Path="README.md" />
     <File Path="src/Directory.Packages.props" />
