@@ -173,7 +173,7 @@ function EmbeddingsRoute() {
 
   const { connection, connectionRef, startConnection, stopConnection } =
     useHubConnection({
-      hubUrl: "/embeddinghub",
+      hubUrl: "/embeddings-hub",
       maxRetries: maxRetries,
       keepAliveInterval: 15000, // 15 seconds - more frequent keep-alive
       serverTimeout: 120000, // 120 seconds - increased timeout
@@ -498,11 +498,11 @@ function EmbeddingsRoute() {
         ) : (
           messages.map((msg) => (
             <div key={msg.id} className="mb-1 flex">
-              <span className="text-gray-500 mr-2 flex-shrink-0">
+              <span className="text-gray-500 mr-2 shrink-0">
                 {formatTimestamp(msg.timestamp)}
               </span>
               <span
-                className={`mr-2 flex-shrink-0 font-bold ${getMessageColor(msg.type)}`}
+                className={`mr-2 shrink-0 font-bold ${getMessageColor(msg.type)}`}
               >
                 {getTypePrefix(msg.type)}
               </span>
@@ -527,7 +527,7 @@ function EmbeddingsRoute() {
             ? ` (showing last ${MAX_GLOBAL_ERRORS})`
             : ""}
         </span>
-        <span>Hub: /embeddinghub</span>
+        <span>Hub: /embeddings-hub</span>
       </div>
     </div>
   );

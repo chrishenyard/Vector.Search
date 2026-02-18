@@ -60,8 +60,8 @@ export default function useHubConnection(
           },
         })
         .configureLogging(signalR.LogLevel.Debug)
-        .withKeepAliveInterval(5000) // 5 seconds
-        .withServerTimeout(10000) // 10 seconds. Should be double the keepAliveInterval
+        .withKeepAliveInterval(15000)
+        .withServerTimeout(30000) // Should be double the keepAliveInterval
         .build();
     }
     return connectionRef.current;

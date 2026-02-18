@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => {
           secure: false,
           ws: true,
         },
-        "/embeddinghub": {
+        "/embeddings-hub": {
           target: env.VITE_SIGNALR_HUB_URL || "https://localhost:9020",
           changeOrigin: true,
           secure: false,
