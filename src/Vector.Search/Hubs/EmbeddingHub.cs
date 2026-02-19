@@ -21,4 +21,10 @@ public class EmbeddingHub(ILogger<EmbeddingHub> logger) : Microsoft.AspNetCore.S
         _logger.LogDebug("Received start signal from client: {ConnectionId}", Context.ConnectionId);
         return await Task.FromResult("Started");
     }
+
+    public async Task<string> GetConnectionId()
+    {
+        var connectionId = Context.ConnectionId;
+        return await Task.FromResult(connectionId);
+    }
 }

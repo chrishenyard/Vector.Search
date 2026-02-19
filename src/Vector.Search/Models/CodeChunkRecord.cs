@@ -4,24 +4,25 @@ namespace Vector.Search.Models;
 
 public sealed class CodeChunkRecord
 {
-    [VectorStoreKey]
+    [VectorStoreKey(StorageName = "id")]
     public Guid Id { get; set; }
 
-    [VectorStoreData(IsIndexed = true)]
+    [VectorStoreData(StorageName = "path")]
     public string Path { get; set; } = "";
 
-    [VectorStoreData(IsIndexed = true)]
+    [VectorStoreData(StorageName = "language")]
     public string Language { get; set; } = "";
 
-    [VectorStoreData(IsFullTextIndexed = true)]
+    [VectorStoreData(StorageName = "content")]
     public string Content { get; set; } = "";
 
-    [VectorStoreData(IsIndexed = true)]
+    [VectorStoreData(StorageName = "hash")]
     public string Hash { get; set; } = "";
 
     [VectorStoreVector(
         Dimensions: 768,
         DistanceFunction = DistanceFunction.CosineSimilarity,
-        IndexKind = IndexKind.Hnsw)]
+        IndexKind = IndexKind.Hnsw,
+        StorageName = "embedding")]
     public ReadOnlyMemory<float>? Embedding { get; set; }
 }

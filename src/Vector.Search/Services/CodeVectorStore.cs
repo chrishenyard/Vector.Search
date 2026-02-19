@@ -6,7 +6,7 @@ namespace Vector.Search.Services;
 public sealed class CodeVectorStore(VectorStore vectorStore, IConfiguration cfg)
 {
     private readonly VectorStore _vectorStore = vectorStore;
-    private readonly string _collectionName = cfg["QDRANT_COLLECTION"]!;
+    private readonly string _collectionName = cfg["COLLECTION_NAME"]!;
 
     private VectorStoreCollection<Guid, CodeChunkRecord> GetCollection()
         => _vectorStore.GetCollection<Guid, CodeChunkRecord>(_collectionName);

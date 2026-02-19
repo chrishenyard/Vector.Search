@@ -173,7 +173,6 @@ public class EndPoints
 
                     var record = new CodeChunkRecord
                     {
-                        Id = Guid.NewGuid(),
                         Path = batch,
                         Language = Path.GetExtension(batch).TrimStart('.'),
                         Hash = CodeChunking.ToSha256(content),
