@@ -2,7 +2,7 @@
 
 namespace Vector.Search.Models;
 
-public sealed class CodeChunkRecord
+public sealed class CodeChunk
 {
     [VectorStoreKey(StorageName = "id")]
     public Guid Id { get; set; }

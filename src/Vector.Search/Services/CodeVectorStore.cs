@@ -10,8 +10,8 @@ public sealed class CodeVectorStore(VectorStore vectorStore, IConfiguration cfg)
     private readonly VectorStore _vectorStore = vectorStore;
     private readonly string _collectionName = cfg["COLLECTION_NAME"]!;
 
-    private VectorStoreCollection<Guid, CodeChunkRecord> GetCollection()
-        => _vectorStore.GetCollection<Guid, CodeChunkRecord>(_collectionName);
+    private VectorStoreCollection<Guid, CodeChunk> GetCollection()
+        => _vectorStore.GetCollection<Guid, CodeChunk>(_collectionName);
 
     public async Task EnsureCollectionAsync(CancellationToken ct)
     {
@@ -19,14 +19,14 @@ public sealed class CodeVectorStore(VectorStore vectorStore, IConfiguration cfg)
         await collection.EnsureCollectionExistsAsync(ct); // creates if missing :contentReference[oaicite:11]{index=11}
     }
 
-    public async Task UpsertAsync(IEnumerable<CodeChunkRecord> records, CancellationToken ct)
+    public async Task UpsertAsync(IEnumerable<CodeChunk> records, CancellationToken ct)
     {
         using var collection = GetCollection();
         foreach (var r in records)
             await collection.UpsertAsync(r, ct);
     }
 
-    public async Task<IReadOnlyList<(CodeChunkRecord Record, double? Score)>> SearchAsync(
+    public async Task<IReadOnlyList<(CodeChunk Record, double? Score)>> SearchAsync(
         ReadOnlyMemory<float> queryVector,
         int topK,
         CancellationToken ct)
@@ -34,12 +34,12 @@ public sealed class CodeVectorStore(VectorStore vectorStore, IConfiguration cfg)
         using var collection = GetCollection();
 
         // You can pass options (filters, skip, include vectors, vector property, etc.) :contentReference[oaicite:12]{index=12}
-        var options = new VectorSearchOptions<CodeChunkRecord>
+        var options = new VectorSearchOptions<CodeChunk>
         {
             IncludeVectors = false
         };
 
-        var results = new List<(CodeChunkRecord, double?)>();
+        var results = new List<(CodeChunk, double?)>();
 
         // SearchAsync returns async stream of VectorSearchResult<TRecord> :contentReference[oaicite:13]{index=13}
         await foreach (var hit in collection.SearchAsync(queryVector, top: topK, options: options, cancellationToken: ct))
