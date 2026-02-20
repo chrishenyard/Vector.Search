@@ -2,9 +2,14 @@
 using System.Security.Cryptography;
 using System.Text;
 
+/*
+    Some concepts were derived from the following sources:
+    https://weaviate.io/blog/chunking-strategies-for-rag
+*/
 namespace Vector.Files.Chunking;
 
 public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
+
 {
     private readonly ILogger<CodeChunking> _logger = logger;
     private const char EndOfBlockMarker = '}';
@@ -14,7 +19,7 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
         string rootPath,
         string[] fileExtensions,
         CancellationToken token,
-        int minimumChunkSize = 5000)
+        int minimumChunkSize = 2000)
     {
         ArgumentException.ThrowIfNullOrEmpty(writePath, nameof(writePath));
         ArgumentException.ThrowIfNullOrEmpty(rootPath, nameof(rootPath));
@@ -60,19 +65,14 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
 
             using var reader = new StreamReader(filePath);
             string? line;
-            var firstLine = true;
 
             while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (firstLine)
+                if (string.IsNullOrWhiteSpace(line))
                 {
-                    firstLine = false;
-                    if (string.IsNullOrWhiteSpace(line))
-                    {
-                        continue; // Skip leading empty lines
-                    }
+                    continue;
                 }
 
                 await writer.WriteLineAsync(line.AsMemory(), cancellationToken);
@@ -85,19 +85,14 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
                     // Look ahead until there are no more end of block characters
                     // to avoid splitting in the middle of a code block
                     var writeLastLookAheadLine = false;
-                    firstLine = true;
 
                     while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        if (firstLine)
+                        if (string.IsNullOrWhiteSpace(line))
                         {
-                            firstLine = false;
-                            if (string.IsNullOrWhiteSpace(line))
-                            {
-                                continue; // Skip leading empty lines
-                            }
+                            continue;
                         }
 
                         if (IsEndOfBlock(line))
