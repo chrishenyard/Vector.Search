@@ -390,7 +390,7 @@ function EmbeddingsRoute() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-900 text-gray-100">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-gray-900 text-gray-100">
       <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-white">Embeddings Console</h2>
@@ -489,7 +489,7 @@ function EmbeddingsRoute() {
       )}
 
       {/* Console Messages */}
-      <div className="flex-1 overflow-y-auto p-4 bg-black font-mono text-sm">
+      <div className="flex-1 min-h-0 min-w-0 p-4 bg-black font-mono text-sm overflow-y-auto overflow-x-hidden terminal-scroll">
         {messages.length === 0 ? (
           <div className="text-gray-500 italic">
             Console ready. Click "Start Embedding" to begin processing and
@@ -497,7 +497,7 @@ function EmbeddingsRoute() {
           </div>
         ) : (
           messages.map((msg) => (
-            <div key={msg.id} className="mb-1 flex">
+            <div key={msg.id} className="mb-1 flex min-w-0 items-start w-full">
               <span className="text-gray-500 mr-2 shrink-0">
                 {formatTimestamp(msg.timestamp)}
               </span>
@@ -506,7 +506,12 @@ function EmbeddingsRoute() {
               >
                 {getTypePrefix(msg.type)}
               </span>
-              <span className={getMessageColor(msg.type)}>{msg.message}</span>
+              <span
+                className={`flex-1 min-w-0 ${getMessageColor(msg.type)} whitespace-pre-wrap`}
+                style={{ overflowWrap: "anywhere" }}
+              >
+                {msg.message}
+              </span>
             </div>
           ))
         )}
