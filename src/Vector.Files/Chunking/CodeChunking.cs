@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using System.Security.Cryptography;
 using System.Text;
 
 /*
@@ -14,7 +13,7 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
     private readonly ILogger<CodeChunking> _logger = logger;
     private const char EndOfBlockMarker = '}';
 
-    public async Task GetChunksAsync(
+    public async Task ProcessChunksAsync(
         string writePath,
         string rootPath,
         string[] fileExtensions,
@@ -153,50 +152,6 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
         }
 
         return idx >= 0 && span[idx] == EndOfBlockMarker;
-    }
-
-    private static string GetLanguage(string fullPath)
-    {
-        var languages = new Dictionary<string, string>
-        {
-            { ".cs", "csharp" },
-            { ".json", "json" },
-            { ".yml", "yaml" },
-            { ".yaml", "yaml" },
-            { ".csproj", "xml" },
-            { ".props", "props" },
-            { ".targets", "targets" },
-            { ".md", "md" },
-            { ".sql", "sql" },
-            { ".tsx", "typescript" },
-            { ".ts", "typescript" },
-            { ".html", "html" },
-            { ".css", "css" },
-            { ".ps1", "power script" }
-        };
-
-        foreach (var language in from language in languages
-                                 where fullPath.EndsWith(language.Key)
-                                 select language)
-        {
-            return language.Value;
-        }
-
-        return "text";
-    }
-
-    public static string ToSha256(string input)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return Convert.ToHexString(bytes).ToLowerInvariant();
-    }
-
-    public static Guid StableGuidFromString(string input)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        Span<byte> guidBytes = stackalloc byte[16];
-        bytes.AsSpan(0, 16).CopyTo(guidBytes);
-        return new Guid(guidBytes);
     }
 }
 

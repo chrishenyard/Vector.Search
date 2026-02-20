@@ -10,14 +10,15 @@
     <File Path="Docker-Compose-Up.ps1" />
     <File Path="db.sql" />
     <File Path="LICENSE" />
+    <File Path="PGVECTOR.md" />
     <File Path="README.md" />
     <File Path="src/Directory.Packages.props" />
   </Folder>
-  <Project Path="src/Vector.Search.Tests/Vector.Search.Tests.csproj" Id="f5e885b0-8dea-4729-867e-22af448d6fb1" />
   <Project Path="docker-compose.dcproj">
     <Platform Project="AnyCPU" />
     <Build />
   </Project>
   <Project Path="src/Vector.Files/Vector.Files.csproj" Id="b9db234f-67d5-4ca5-b0fa-3c2aea5026e0" />
+  <Project Path="src/Vector.Search.Tests/Vector.Search.Tests.csproj" Id="f5e885b0-8dea-4729-867e-22af448d6fb1" />
   <Project Path="src/Vector.Search/Vector.Search.csproj" />
 </Solution>

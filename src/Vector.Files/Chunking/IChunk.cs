@@ -2,7 +2,7 @@
 
 public interface IChunk
 {
-    Task GetChunksAsync(
+    Task ProcessChunksAsync(
         string writePath,
         string rootPath,
         string[] fileExtensions,

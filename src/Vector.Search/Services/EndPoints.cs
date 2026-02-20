@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
+using System.Collections.Concurrent;
 using Vector.Files.Chunking;
 using Vector.Search.Hubs;
 using Vector.Search.Models;
@@ -131,15 +132,14 @@ public class EndPoints
         ILogger<EndPoints> logger,
         CancellationToken requestAborted)
     {
+        // Declare a dictionary to test whether the hashing and stable GUID generation is working as expected
+        var testDict = new ConcurrentDictionary<string, Guid>();
+
         var rootPath = cfg["REPO_ROOT"]!;
         var writePath = Path.Combine(Path.GetTempPath(), $"write-{operationId}");
 
         var extensions = (cfg["FILE_EXTENSIONS"]!)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        var files = Directory.EnumerateFiles(rootPath, "*.*", SearchOption.AllDirectories)
-            .Where(p => extensions.Any(ext => p.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(requestAborted);
         var token = cts.Token;
@@ -158,40 +158,45 @@ public class EndPoints
 
             Directory.CreateDirectory(writePath);
 
-            foreach (var file in files)
+            await chunk.ProcessChunksAsync(writePath, rootPath, extensions, token);
+            var chunks = Directory.EnumerateFiles(writePath, "*.*");
+
+            await Parallel.ForEachAsync(chunks, parallelOptions, async (batch, ct) =>
             {
-                if (token.IsCancellationRequested)
-                    break;
+                var content = await File.ReadAllTextAsync(batch, ct);
+                var embeddings = await ollama.EmbedAsync($"{content}", ct);
 
-                await chunk.GetChunksAsync(writePath, rootPath, extensions, token);
-                var chunks = Directory.EnumerateFiles(writePath, "*.*");
+                var hash = CodeVectorStore.ToSha256(content);
+                var id = CodeVectorStore.StableGuidFromString(hash);
 
-                await Parallel.ForEachAsync(chunks, parallelOptions, async (batch, ct) =>
+                var isUniqueKey = testDict.TryAdd(hash, id);
+                if (!isUniqueKey)
                 {
-                    var content = await File.ReadAllTextAsync(batch, ct);
-                    var embeddings = await ollama.EmbedAsync($"{batch}\n{content}", ct);
+                    logger.LogWarning("Hash collision detected for file {FilePath} with hash {Hash}", batch, hash);
+                    throw new Exception("Hash collision detected, aborting operation");
+                }
 
-                    var record = new CodeChunkRecord
-                    {
-                        Path = batch,
-                        Language = Path.GetExtension(batch).TrimStart('.'),
-                        Hash = CodeChunking.ToSha256(content),
-                        Content = content,
-                        Embedding = embeddings
-                    };
+                var record = new CodeChunkRecord
+                {
+                    Id = id,
+                    Path = batch,
+                    Language = Path.GetExtension(batch).TrimStart('.'),
+                    Hash = hash,
+                    Content = content,
+                    Embedding = embeddings
+                };
 
-                    Interlocked.Add(ref total, 1);
+                Interlocked.Add(ref total, 1);
 
-                    // Persist records for this batch (batched upsert can be added later)
-                    await vectorStore.UpsertAsync([record], ct);
+                // Persist records for this batch (batched upsert can be added later)
+                await vectorStore.UpsertAsync([record], ct);
 
-                    await hubContext.Clients.Client(connectionId).SendAsync(
-                        "ChunkProcessed",
-                        new { OperationId = operationId, FilePath = batch, Indexed = total },
-                        ct);
+                await hubContext.Clients.Client(connectionId).SendAsync(
+                    "ChunkProcessed",
+                    new { OperationId = operationId, FilePath = batch, Indexed = total },
+                    ct);
 
-                });
-            }
+            });
 
             await hubContext.Clients.Client(connectionId).SendAsync(
                 "EmbeddingCompleted",

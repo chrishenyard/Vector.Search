@@ -39,7 +39,7 @@ public class CodeChunkingTests
         try
         {
             // Act
-            await sut.GetChunksAsync(writePath, rootPath, fileExtensiions, cts.Token, 5000);
+            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensiions, cts.Token, 5000);
 
             // Assert
             var chunkDir = Path.Combine(rootPath, writePath);
@@ -98,7 +98,7 @@ public class CodeChunkingTests
         try
         {
             // Act
-            await sut.GetChunksAsync(writePath, rootPath, fileExtensiions, cts.Token, 5000);
+            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensiions, cts.Token, 5000);
 
             var chunkFiles = Directory
                 .EnumerateFiles(writePath, "temp_*.txt", SearchOption.TopDirectoryOnly)
