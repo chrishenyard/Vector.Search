@@ -183,7 +183,7 @@ public class EndPoints
                     Interlocked.Add(ref total, 1);
 
                     // Persist records for this batch (batched upsert can be added later)
-                    //await vectorStore.UpsertAsync(new[] { record }, ct);
+                    await vectorStore.UpsertAsync([record], ct);
 
                     await hubContext.Clients.Client(connectionId).SendAsync(
                         "ChunkProcessed",
