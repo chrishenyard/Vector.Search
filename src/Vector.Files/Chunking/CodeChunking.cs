@@ -2,8 +2,9 @@
 using System.Text;
 
 /*
-    Some concepts were derived from the following sources:
+    Research sources:
     https://weaviate.io/blog/chunking-strategies-for-rag
+    https://aws.amazon.com/blogs/database/optimize-generative-ai-applications-with-pgvector-indexing-a-deep-dive-into-ivfflat-and-hnsw-techniques/
 */
 namespace Vector.Files.Chunking;
 

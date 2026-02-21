@@ -365,3 +365,4 @@ FodyWeavers.xsd
 /.env
 /src/Vector.Search/DataProtectionKeys
 /src/Vector.Search.Web/src/routeTree.gen.ts
+/repo

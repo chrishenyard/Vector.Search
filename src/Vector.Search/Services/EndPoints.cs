@@ -249,19 +249,19 @@ public class EndPoints
                 // Swallow any SignalR failures in background context
             }
         }
-        finally
-        {
-            if (Directory.Exists(writePath))
-            {
-                try
-                {
-                    Directory.Delete(writePath, true);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Failed to clean up temporary files at {WritePath}", writePath);
-                }
-            }
-        }
+        //finally
+        //{
+        //    if (Directory.Exists(writePath))
+        //    {
+        //        try
+        //        {
+        //            Directory.Delete(writePath, true);
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            logger.LogWarning(ex, "Failed to clean up temporary files at {WritePath}", writePath);
+        //        }
+        //    }
+        //}
     }
 }
