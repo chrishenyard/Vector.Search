@@ -166,6 +166,7 @@ public class EndPoints
         // Declare a dictionary to test whether the hashing and stable GUID generation is working as expected
         var testDict = new ConcurrentDictionary<string, Guid>();
 
+        _ = bool.TryParse(cfg["DELETE_TEMP_FILES"], out var deleteTempFiles);
         var rootPath = cfg["REPO_ROOT"]!;
         var writePath = Path.Combine(Path.GetTempPath(), $"write-{operationId}");
 
@@ -249,19 +250,19 @@ public class EndPoints
                 // Swallow any SignalR failures in background context
             }
         }
-        //finally
-        //{
-        //    if (Directory.Exists(writePath))
-        //    {
-        //        try
-        //        {
-        //            Directory.Delete(writePath, true);
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            logger.LogWarning(ex, "Failed to clean up temporary files at {WritePath}", writePath);
-        //        }
-        //    }
-        //}
+        finally
+        {
+            if (Directory.Exists(writePath) && deleteTempFiles)
+            {
+                try
+                {
+                    Directory.Delete(writePath, true);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to clean up temporary files at {WritePath}", writePath);
+                }
+            }
+        }
     }
 }

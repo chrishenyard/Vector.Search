@@ -17,6 +17,7 @@ services:
       COLLECTION_NAME: code_chunk
       CHAT_MODEL: llama3.1
       REPO_ROOT: /repo
+      DELETE_TEMP_FILES: "false"
       FILE_EXTENSIONS: .cs,.json,.yml,.yaml,.csproj,.props,.targets,.md,.sql,.js,.tsx,.ts,.html,.css,.ps1,.csproj
     volumes:
       - .\repo:/repo:ro

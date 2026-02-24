@@ -19,7 +19,7 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
         string rootPath,
         string[] fileExtensions,
         CancellationToken token,
-        int minimumChunkSize = 2000)
+        int minimumChunkSize = 1000)
     {
         ArgumentException.ThrowIfNullOrEmpty(writePath, nameof(writePath));
         ArgumentException.ThrowIfNullOrEmpty(rootPath, nameof(rootPath));

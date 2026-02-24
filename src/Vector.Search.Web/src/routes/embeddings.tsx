@@ -99,22 +99,19 @@ function EmbeddingsRoute() {
         return;
       }
 
+      await disconnectFromHub();
+
       addMessage({
         type: "signalr",
         message: `${msg.operationId}: - Completed. Indexed ${msg.indexed} chunks.`,
         data: msg,
       });
-
-      connection.off("ChunkProcessed");
-      connection.off("EmbeddingCompleted");
-      connection.off("EmbeddingError");
-      await stopConnection();
     },
     [],
   );
 
   const handleEmbeddingErrorMessage = useCallback(
-    (msg: { operationId: string; error: string }) => {
+    async (msg: { operationId: string; error: string }) => {
       if (!msg) {
         addMessage({
           type: "signalr",
@@ -124,13 +121,13 @@ function EmbeddingsRoute() {
         return;
       }
 
+      await disconnectFromHub();
+
       addMessage({
         type: "signalr",
         message: `${msg.operationId}: - Error: ${msg.error}`,
         data: msg,
       });
-
-      // Note: disconnectFromHub will be handled after this message
     },
     [],
   );
@@ -145,42 +142,20 @@ function EmbeddingsRoute() {
     });
   }, []);
 
-  const cleanUp = useCallback(() => {
+  const cleanUp = useCallback(async () => {
     const currentConnection = connectionRef.current;
-    const attempts = attemptsRef.current;
 
     if (!currentConnection) return;
 
-    if (
-      currentConnection.state === signalR.HubConnectionState.Connected ||
-      (currentConnection.state === signalR.HubConnectionState.Reconnecting &&
-        attempts >= maxRetries)
-    ) {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.removeEventListener("beforeunload", handleBeforeUnload);
 
-      currentConnection.off("ChunkProcessed");
-      currentConnection.off("EmbeddingCompleted");
-      currentConnection.off("EmbeddingError");
+    await disconnectFromHub();
 
-      currentConnection.stop().catch((err) => {
-        addError(
-          `Error stopping connection during cleanup: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-      console.log("Connection cleaned up successfully");
-    }
-  }, []);
-
-  const { connection, connectionRef, startConnection, stopConnection } =
-    useHubConnection({
-      hubUrl: "/embeddings-hub",
-      maxRetries: maxRetries,
-      keepAliveInterval: 15000, // 15 seconds - more frequent keep-alive
-      serverTimeout: 120000, // 120 seconds - increased timeout
-      onConnectionStateChange: setStatus,
-      onRetryAttempt: handleRetryAttempt,
-      onCleanUp: cleanUp,
+    addMessage({
+      type: "system",
+      message: "Cleaned up SignalR connection and event listeners.",
     });
+  }, []);
 
   const handleBeforeUnload = (event: BeforeUnloadEvent) => {
     event.preventDefault();
@@ -188,27 +163,20 @@ function EmbeddingsRoute() {
   };
 
   const disconnectFromHub = useCallback(async () => {
-    try {
-      if (connection.state !== signalR.HubConnectionState.Disconnected) {
-        addMessage({
-          type: "system",
-          message: "Disconnecting from SignalR hub...",
-        });
+    addMessage({
+      type: "system",
+      message: "Disconnecting from SignalR hub...",
+    });
 
-        connection.off("ChunkProcessed");
-        connection.off("EmbeddingCompleted");
-        connection.off("EmbeddingError");
-        await stopConnection();
+    connection.off("ChunkProcessed");
+    connection.off("EmbeddingCompleted");
+    connection.off("EmbeddingError");
+    await stopConnection();
 
-        addMessage({
-          type: "system",
-          message: "Disconnected from SignalR hub.",
-        });
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      addError(`Failed to disconnect from SignalR hub: ${errorMsg}`);
-    }
+    addMessage({
+      type: "system",
+      message: "Disconnected from SignalR hub.",
+    });
   }, []);
 
   const reconnectToHub = useCallback(async () => {
@@ -218,40 +186,11 @@ function EmbeddingsRoute() {
         message: "Reconnecting to SignalR hub...",
       });
 
-      // Disconnect
-      if (connection.state !== signalR.HubConnectionState.Disconnected) {
-        connection.off("ChunkProcessed");
-        connection.off("EmbeddingCompleted");
-        connection.off("EmbeddingError");
-        await stopConnection();
-        addMessage({
-          type: "system",
-          message: "Disconnected from SignalR hub for reconnection.",
-        });
-      }
+      await disconnectFromHub();
 
       // Wait a moment before reconnecting to ensure cleanup is complete
       await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Reconnect
-      await startConnection();
-
-      connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
-      connection.on("EmbeddingCompleted", (m) => {
-        handleEmbeddingCompleteMessage(m);
-        setTimeout(() => {
-          stopConnection().catch(console.error);
-        }, 1000);
-      });
-      connection.on("EmbeddingError", (m) => {
-        handleEmbeddingErrorMessage(m);
-        setTimeout(() => {
-          stopConnection().catch(console.error);
-        }, 1000);
-      });
-
-      const msg: string = await connection.invoke("Start");
-      console.log("Start method invoked on hub, response:", msg);
+      await connectToHub();
 
       addMessage({
         type: "system",
@@ -282,8 +221,8 @@ function EmbeddingsRoute() {
         return;
       }
 
+      await connectToHub();
       const connectionId = connection.connectionId;
-      console.log("Current SignalR connection ID:", connectionId);
 
       const response = (await apiClient.post("/api/embed", {
         connectionId,
@@ -324,40 +263,40 @@ function EmbeddingsRoute() {
     });
   };
 
-  useEffect(() => {
-    (async () => {
-      try {
-        if (connection.state === signalR.HubConnectionState.Disconnected) {
-          connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
-          connection.on("EmbeddingCompleted", (m) =>
-            handleEmbeddingCompleteMessage(m),
-          );
-          connection.on("EmbeddingError", (m) =>
-            handleEmbeddingErrorMessage(m),
-          );
+  const { connection, connectionRef, startConnection, stopConnection } =
+    useHubConnection({
+      hubUrl: "/embeddings-hub",
+      maxRetries: maxRetries,
+      keepAliveInterval: 15000, // 15 seconds - more frequent keep-alive
+      serverTimeout: 120000, // 120 seconds - increased timeout
+      onConnectionStateChange: setStatus,
+      onRetryAttempt: handleRetryAttempt,
+      onCleanUp: cleanUp,
+    });
 
-          await startConnection();
+  const connectToHub = useCallback(async () => {
+    await disconnectFromHub();
 
-          const msg: string = await connection.invoke("Start");
-          console.log("Start method invoked on hub, response:", msg);
+    if (connection.state === signalR.HubConnectionState.Disconnected) {
+      connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
+      connection.on("EmbeddingCompleted", (m) =>
+        handleEmbeddingCompleteMessage(m),
+      );
+      connection.on("EmbeddingError", (m) => handleEmbeddingErrorMessage(m));
 
-          addMessage({
-            type: "system",
-            message: "Connected to SignalR hub. Ready to monitor embeddings.",
-          });
-        }
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        addError(`Failed to connect to SignalR hub: ${errorMsg}`);
-      }
-    })();
+      await startConnection();
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
+      const msg: string = await connection.invoke("Start");
+      console.log("Start method invoked on hub, response:", msg);
 
-    return () => {
-      cleanUp();
-    };
-  }, [connection]);
+      addMessage({
+        type: "system",
+        message: "Connected to SignalR hub. Ready to monitor embeddings.",
+      });
+    }
+  }, []);
+
+  window.addEventListener("beforeunload", handleBeforeUnload);
 
   const getMessageColor = (type: ConsoleMessage["type"]) => {
     switch (type) {
@@ -390,7 +329,7 @@ function EmbeddingsRoute() {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-gray-900 text-gray-100">
+    <div className="w-full h-full flex flex-col shadow-2xl rounded-lg overflow-hidden bg-gray-900 text-gray-100">
       <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-bold text-white">Embeddings Console</h2>
@@ -502,12 +441,16 @@ function EmbeddingsRoute() {
                 {formatTimestamp(msg.timestamp)}
               </span>
               <span
-                className={`mr-2 shrink-0 font-bold ${getMessageColor(msg.type)}`}
+                className={`mr-2 shrink-0 font-bold ${getMessageColor(
+                  msg.type,
+                )}`}
               >
                 {getTypePrefix(msg.type)}
               </span>
               <span
-                className={`flex-1 min-w-0 ${getMessageColor(msg.type)} whitespace-pre-wrap`}
+                className={`flex-1 min-w-0 ${getMessageColor(
+                  msg.type,
+                )} whitespace-pre-wrap`}
                 style={{ overflowWrap: "anywhere" }}
               >
                 {msg.message}
