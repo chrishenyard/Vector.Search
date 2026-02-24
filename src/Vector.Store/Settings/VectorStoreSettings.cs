@@ -8,4 +8,18 @@ public class VectorStoreSettings
 
     [Required]
     public string CollectionName { get; set; } = null!;
+
+    public bool DeleteTemporaryFiles { get; set; } = true;
+
+    [Required]
+    public string RepositoryPath { get; set; } = null!;
+
+    [Required]
+    public string FileExtensions { get; set; } = null!;
+
+    [Required]
+    public string EmbeddingsModel { get; set; } = null!;
+
+    [Required]
+    public string ChatModel { get; set; } = null!;
 }

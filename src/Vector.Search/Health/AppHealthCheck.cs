@@ -1,18 +1,20 @@
 ﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.VectorData;
 using OllamaSharp;
+using Vector.Store.Settings;
 
 namespace Vector.Search.Health;
 
 public class AppHealthCheck(
     OllamaApiClient ollamaClient,
     VectorStore vectorStore,
-    IConfiguration cfg,
+    IOptions<VectorStoreSettings> options,
     ILogger<AppHealthCheck> logger) : IHealthCheck
 {
     private readonly OllamaApiClient _ollamaClient = ollamaClient;
     private readonly VectorStore _vectorStore = vectorStore;
-    private readonly IConfiguration _cfg = cfg;
+    private readonly VectorStoreSettings settings = options.Value;
     private readonly ILogger<AppHealthCheck> _logger = logger;
 
     public async Task<HealthCheckResult> CheckHealthAsync(
@@ -21,7 +23,7 @@ public class AppHealthCheck(
     {
         _logger.LogDebug("Performing health check...");
 
-        var models = new List<string> { _cfg["EMBEDDING_MODEL"]!, _cfg["CHAT_MODEL"]! };
+        var models = new List<string> { settings.EmbeddingsModel, settings.ChatModel };
         var llmModels = await _ollamaClient.ListLocalModelsAsync(token);
 
         if (llmModels == null || !llmModels.Any())

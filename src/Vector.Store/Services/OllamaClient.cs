@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using OllamaSharp;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
@@ -10,13 +9,13 @@ namespace Vector.Store.Services;
 
 public sealed class OllamaClient(
     OllamaApiClient ollamaApiClient,
-    IOptions<OllamaSettings> options,
-    IConfiguration cfg)
+    IOptions<OllamaSettings> ollamaOptions,
+    IOptions<VectorStoreSettings> storeOptions)
 {
     private readonly OllamaApiClient _ollamaApiClient = ollamaApiClient;
-    private readonly string _embeddingModel = cfg["EMBEDDING_MODEL"]!;
-    private readonly string _chatModel = cfg["CHAT_MODEL"]!;
-    private readonly OllamaSettings _settings = options.Value;
+    private readonly string _embeddingModel = storeOptions.Value.EmbeddingsModel;
+    private readonly string _chatModel = storeOptions.Value.ChatModel;
+    private readonly OllamaSettings _settings = ollamaOptions.Value;
 
     public async Task<float[]> EmbedAsync(string input, CancellationToken ct)
     {

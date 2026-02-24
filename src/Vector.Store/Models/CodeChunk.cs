@@ -8,7 +8,7 @@ public sealed class CodeChunk
     public Guid Id { get; set; }
 
     [VectorStoreData(StorageName = "path")]
-    public string Path { get; set; } = "";
+    public string Filename { get; set; } = "";
 
     [VectorStoreData(StorageName = "language")]
     public string Language { get; set; } = "";

@@ -6,17 +6,18 @@ namespace Vector.Search.Services;
 
 public class OllamaModelInitializer(
     IServiceProvider serviceProvider,
-    IConfiguration cfg,
-    ILogger<OllamaModelInitializer> logger,
-    IOptions<OllamaSettings> options) : IHostedService
+    IOptions<VectorStoreSettings> storeOptions,
+    IOptions<OllamaSettings> ollamaOptions,
+    ILogger<OllamaModelInitializer> logger) : IHostedService
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly ILogger<OllamaModelInitializer> _logger = logger;
-    private readonly OllamaSettings _ollamaSettings = options.Value;
+    private readonly OllamaSettings _ollamaSettings = ollamaOptions.Value;
+    private readonly VectorStoreSettings _storeSettings = storeOptions.Value;
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        var models = new List<string> { cfg["EMBEDDING_MODEL"]!, cfg["CHAT_MODEL"]! };
+        var models = new List<string> { _storeSettings.EmbeddingsModel, _storeSettings.ChatModel };
         _logger.LogDebug("Configured models: {Models}", string.Join(", ", models));
 
         try

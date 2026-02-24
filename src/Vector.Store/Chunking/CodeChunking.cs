@@ -1,11 +1,11 @@
 ﻿using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Text;
 using Vector.Store.Hubs;
 using Vector.Store.Models;
 using Vector.Store.Services;
+using Vector.Store.Settings;
 using Vector.Store.Stores;
 
 /*
@@ -45,16 +45,24 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
             {
                 _logger.LogDebug("Processing file: {FilePath}", file);
 
-                await ChunkSingleFileAsync(
-                    file,
-                    rootPath,
-                    writePath,
-                    minimumChunkSize,
-                    cancellationToken);
+                var fileExtension = Path.GetExtension(file);
+
+                if (fileExtension != null)
+                {
+                    switch (fileExtension.ToLower())
+                    {
+                        case ".cs":
+                            await ChunkCSharpAsync(file, rootPath, writePath, minimumChunkSize, cancellationToken);
+                            break;
+                        default:
+                            _logger.LogWarning("Unsupported file extension {FileExtension} for file {FilePath}", fileExtension, file);
+                            break;
+                    }
+                }
             });
     }
 
-    private static async Task ChunkSingleFileAsync(
+    private static async Task ChunkCSharpAsync(
         string filePath,
         string rootPath,
         string savePath,
@@ -62,7 +70,8 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
         CancellationToken cancellationToken)
     {
         var characterCount = 0;
-        var tempFileName = CreateTempFileName();
+        var filename = Path.GetFileName(filePath);
+        var tempFileName = CreateTempFileName(filename);
         var tempFilePath = Path.Combine(rootPath, savePath, tempFileName);
 
         StreamWriter? writer = null;
@@ -117,7 +126,7 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
                     await writer.FlushAsync(cancellationToken);
                     await writer.DisposeAsync();
 
-                    tempFileName = CreateTempFileName();
+                    tempFileName = CreateTempFileName(filename);
                     tempFilePath = Path.Combine(rootPath, savePath, tempFileName);
                     writer = CreateWriter(tempFilePath);
 
@@ -146,7 +155,7 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
     public static async Task ProcessFilesAsync(
         string operationId,
         string connectionId,
-        IConfiguration cfg,
+        VectorStoreSettings settings,
         OllamaClient ollama,
         CodeVectorStore vectorStore,
         IChunk chunk,
@@ -156,12 +165,10 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
     {
         // Declare a dictionary to test whether the hashing and stable GUID generation is working as expected
         var testDict = new ConcurrentDictionary<string, Guid>();
-
-        _ = bool.TryParse(cfg["DELETE_TEMP_FILES"], out var deleteTempFiles);
-        var rootPath = cfg["REPO_ROOT"]!;
+        var rootPath = settings.RepositoryPath;
         var writePath = Path.Combine(Path.GetTempPath(), $"write-{operationId}");
 
-        var extensions = (cfg["FILE_EXTENSIONS"]!)
+        var extensions = settings.FileExtensions
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(requestAborted);
@@ -180,8 +187,8 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
             };
 
             Directory.CreateDirectory(writePath);
-
             await chunk.ProcessChunksAsync(writePath, rootPath, extensions, token);
+
             var chunks = Directory.EnumerateFiles(writePath, "*.*");
 
             await Parallel.ForEachAsync(chunks, parallelOptions, async (batch, ct) =>
@@ -202,7 +209,7 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
                 var record = new CodeChunk
                 {
                     Id = id,
-                    Path = batch,
+                    Filename = batch,
                     Language = Path.GetExtension(batch).TrimStart('.'),
                     Hash = hash,
                     Content = content,
@@ -243,7 +250,7 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
         }
         finally
         {
-            if (Directory.Exists(writePath) && deleteTempFiles)
+            if (Directory.Exists(writePath) && settings.DeleteTemporaryFiles)
             {
                 try
                 {
@@ -257,7 +264,7 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
         }
     }
 
-    private static string CreateTempFileName() => $"temp_{Guid.NewGuid()}.txt";
+    private static string CreateTempFileName(string filename) => $"{filename}_{Guid.NewGuid()}.txt";
 
     private static StreamWriter CreateWriter(string path) =>
         new(path, append: true, encoding: Encoding.UTF8);
