@@ -1,17 +1,21 @@
-﻿using Microsoft.Extensions.VectorData;
+﻿using Microsoft.Extensions.Options;
+using Microsoft.Extensions.VectorData;
 using System.Security.Cryptography;
 using System.Text;
-using Vector.Search.Models;
+using Vector.Store.Models;
+using Vector.Store.Settings;
 
-namespace Vector.Search.Services;
+namespace Vector.Store.Stores;
 
-public sealed class CodeVectorStore(VectorStore vectorStore, IConfiguration cfg)
+public sealed class CodeVectorStore(
+    VectorStore vectorStore,
+    IOptions<VectorStoreSettings> options)
 {
     private readonly VectorStore _vectorStore = vectorStore;
-    private readonly string _collectionName = cfg["COLLECTION_NAME"]!;
+    private readonly VectorStoreSettings _options = options.Value;
 
     private VectorStoreCollection<Guid, CodeChunk> GetCollection()
-        => _vectorStore.GetCollection<Guid, CodeChunk>(_collectionName);
+        => _vectorStore.GetCollection<Guid, CodeChunk>(_options.CollectionName);
 
     public async Task EnsureCollectionAsync(CancellationToken ct)
     {

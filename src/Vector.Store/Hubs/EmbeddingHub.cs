@@ -1,4 +1,6 @@
-﻿namespace Vector.Search.Hubs;
+﻿using Microsoft.Extensions.Logging;
+
+namespace Vector.Store.Hubs;
 
 public class EmbeddingHub(ILogger<EmbeddingHub> logger) : Microsoft.AspNetCore.SignalR.Hub
 {

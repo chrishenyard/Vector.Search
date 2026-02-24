@@ -8,6 +8,9 @@ using Vector.Files.Chunking;
 using Vector.Search.Health;
 using Vector.Search.Services;
 using Vector.Search.Settings;
+using Vector.Store.Services;
+using Vector.Store.Settings;
+using Vector.Store.Stores;
 
 namespace Vector.Search.Configuration;
 
@@ -18,6 +21,12 @@ public static class ServiceExtensions
         services
            .AddOptions<OllamaSettings>()
            .BindConfiguration(OllamaSettings.SectionName)
+           .ValidateDataAnnotations()
+           .ValidateOnStart();
+
+        services
+           .AddOptions<VectorStoreSettings>()
+           .BindConfiguration(VectorStoreSettings.SectionName)
            .ValidateDataAnnotations()
            .ValidateOnStart();
 

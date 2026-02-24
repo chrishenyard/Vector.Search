@@ -5,9 +5,12 @@ using Microsoft.Extensions.Options;
 using OllamaSharp;
 using System.Collections.Concurrent;
 using Vector.Files.Chunking;
-using Vector.Search.Hubs;
 using Vector.Search.Models;
-using Vector.Search.Settings;
+using Vector.Store.Hubs;
+using Vector.Store.Models;
+using Vector.Store.Services;
+using Vector.Store.Settings;
+using Vector.Store.Stores;
 
 namespace Vector.Search.Services;
 

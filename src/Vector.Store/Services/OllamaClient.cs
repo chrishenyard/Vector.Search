@@ -1,11 +1,12 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using OllamaSharp;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 using System.Text;
-using Vector.Search.Settings;
+using Vector.Store.Settings;
 
-namespace Vector.Search.Services;
+namespace Vector.Store.Services;
 
 public sealed class OllamaClient(
     OllamaApiClient ollamaApiClient,

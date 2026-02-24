@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
 using OllamaSharp;
-using Vector.Search.Settings;
+using Vector.Store.Settings;
 
 namespace Vector.Search.Services;
 
