@@ -99,7 +99,14 @@ function EmbeddingsRoute() {
         return;
       }
 
-      await disconnectFromHub();
+      try {
+        await disconnectFromHub();
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        addError(
+          `Error disconnecting from hub after embedding completion: ${errorMsg}`,
+        );
+      }
 
       addMessage({
         type: "signalr",
@@ -121,7 +128,14 @@ function EmbeddingsRoute() {
         return;
       }
 
-      await disconnectFromHub();
+      try {
+        await disconnectFromHub();
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        addError(
+          `Error disconnecting from hub after embedding error: ${errorMsg}`,
+        );
+      }
 
       addMessage({
         type: "signalr",
@@ -149,7 +163,12 @@ function EmbeddingsRoute() {
 
     window.removeEventListener("beforeunload", handleBeforeUnload);
 
-    await disconnectFromHub();
+    try {
+      await disconnectFromHub();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      addError(`Error during cleanup: ${errorMsg}`);
+    }
 
     addMessage({
       type: "system",
@@ -161,23 +180,6 @@ function EmbeddingsRoute() {
     event.preventDefault();
     cleanUp();
   };
-
-  const disconnectFromHub = useCallback(async () => {
-    addMessage({
-      type: "system",
-      message: "Disconnecting from SignalR hub...",
-    });
-
-    connection.off("ChunkProcessed");
-    connection.off("EmbeddingCompleted");
-    connection.off("EmbeddingError");
-    await stopConnection();
-
-    addMessage({
-      type: "system",
-      message: "Disconnected from SignalR hub.",
-    });
-  }, []);
 
   const reconnectToHub = useCallback(async () => {
     try {
@@ -199,6 +201,45 @@ function EmbeddingsRoute() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       addError(`Failed to reconnect to SignalR hub: ${errorMsg}`);
+    }
+  }, []);
+
+  const disconnectFromHub = useCallback(async () => {
+    addMessage({
+      type: "system",
+      message: "Disconnecting from SignalR hub...",
+    });
+
+    connection.off("ChunkProcessed");
+    connection.off("EmbeddingCompleted");
+    connection.off("EmbeddingError");
+    await stopConnection();
+
+    addMessage({
+      type: "system",
+      message: "Disconnected from SignalR hub.",
+    });
+  }, []);
+
+  const connectToHub = useCallback(async () => {
+    await disconnectFromHub();
+
+    if (connection.state === signalR.HubConnectionState.Disconnected) {
+      connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
+      connection.on("EmbeddingCompleted", (m) =>
+        handleEmbeddingCompleteMessage(m),
+      );
+      connection.on("EmbeddingError", (m) => handleEmbeddingErrorMessage(m));
+
+      await startConnection();
+
+      const msg: string = await connection.invoke("Start");
+      console.log("Start method invoked on hub, response:", msg);
+
+      addMessage({
+        type: "system",
+        message: "Connected to SignalR hub. Ready to monitor embeddings.",
+      });
     }
   }, []);
 
@@ -273,28 +314,6 @@ function EmbeddingsRoute() {
       onRetryAttempt: handleRetryAttempt,
       onCleanUp: cleanUp,
     });
-
-  const connectToHub = useCallback(async () => {
-    await disconnectFromHub();
-
-    if (connection.state === signalR.HubConnectionState.Disconnected) {
-      connection.on("ChunkProcessed", (m) => handleChunkMessage(m));
-      connection.on("EmbeddingCompleted", (m) =>
-        handleEmbeddingCompleteMessage(m),
-      );
-      connection.on("EmbeddingError", (m) => handleEmbeddingErrorMessage(m));
-
-      await startConnection();
-
-      const msg: string = await connection.invoke("Start");
-      console.log("Start method invoked on hub, response:", msg);
-
-      addMessage({
-        type: "system",
-        message: "Connected to SignalR hub. Ready to monitor embeddings.",
-      });
-    }
-  }, []);
 
   window.addEventListener("beforeunload", handleBeforeUnload);
 
