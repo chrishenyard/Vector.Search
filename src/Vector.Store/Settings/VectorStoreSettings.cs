@@ -22,4 +22,6 @@ public class VectorStoreSettings
 
     [Required]
     public string ChatModel { get; set; } = null!;
+
+    public int MaxDegreeOfParallelism { get; set; } = 1;
 }

@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Text;
 using Vector.Files.Chunking;
+using Vector.Store.Settings;
 
 namespace Vector.Tools.Tests.Files;
 
@@ -33,7 +35,15 @@ public class CodeChunkingTests
 
         await File.WriteAllTextAsync(sourceFile, sb.ToString());
 
-        var sut = new CodeChunking(new LoggerFactory().CreateLogger<CodeChunking>());
+        var options = Options.Create(new VectorStoreSettings
+        {
+            DeleteTemporaryFiles = true,
+            MaxDegreeOfParallelism = 4
+        });
+
+        var sut = new CodeChunking(
+            options,
+            new LoggerFactory().CreateLogger<CodeChunking>());
         var cts = new CancellationTokenSource();
 
         try
@@ -46,7 +56,7 @@ public class CodeChunkingTests
             Assert.True(Directory.Exists(chunkDir));
 
             var chunkFiles = Directory
-                .EnumerateFiles(chunkDir, "temp_*.txt", SearchOption.TopDirectoryOnly)
+                .EnumerateFiles(chunkDir, "*.txt", SearchOption.TopDirectoryOnly)
                 .ToList();
 
             Assert.NotEmpty(chunkFiles); // At least one chunk should be created
@@ -92,7 +102,15 @@ public class CodeChunkingTests
         Directory.CreateDirectory(writePath);
         File.Copy("Resources/Code.txt", filePath, overwrite: true);
 
-        var sut = new CodeChunking(new LoggerFactory().CreateLogger<CodeChunking>());
+        var options = Options.Create(new VectorStoreSettings
+        {
+            DeleteTemporaryFiles = true,
+            MaxDegreeOfParallelism = 4
+        });
+
+        var sut = new CodeChunking(
+            options,
+            new LoggerFactory().CreateLogger<CodeChunking>());
         var cts = new CancellationTokenSource();
 
         try
@@ -101,7 +119,7 @@ public class CodeChunkingTests
             await sut.ProcessChunksAsync(writePath, rootPath, fileExtensiions, cts.Token, 5000);
 
             var chunkFiles = Directory
-                .EnumerateFiles(writePath, "temp_*.txt", SearchOption.TopDirectoryOnly)
+                .EnumerateFiles(writePath, "*.txt", SearchOption.TopDirectoryOnly)
                 .ToList();
 
             Assert.NotEmpty(chunkFiles); // At least one chunk should be created

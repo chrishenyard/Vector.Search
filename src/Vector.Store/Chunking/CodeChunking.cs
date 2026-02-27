@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Text;
 using Vector.Store.Hubs;
@@ -15,9 +16,12 @@ using Vector.Store.Stores;
 */
 namespace Vector.Files.Chunking;
 
-public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
+public class CodeChunking(
+    IOptions<VectorStoreSettings> settings,
+    ILogger<CodeChunking> logger) : IChunk
 
 {
+    private readonly VectorStoreSettings _settings = settings.Value;
     private readonly ILogger<CodeChunking> _logger = logger;
     private const char EndOfBlockMarker = '}';
 
@@ -34,7 +38,7 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
         var parallelOptions = new ParallelOptions
         {
             CancellationToken = token,
-            MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount / 2, 1) // Use half of the available processors to avoid overwhelming the system
+            MaxDegreeOfParallelism = Math.Max(_settings.MaxDegreeOfParallelism, 1)
         };
 
         var files = Directory.EnumerateFiles(rootPath, "*.*", SearchOption.AllDirectories)
@@ -152,30 +156,28 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
         }
     }
 
-    public static async Task ProcessFilesAsync(
+    public async Task ProcessFilesAsync(
         string operationId,
         string connectionId,
-        VectorStoreSettings settings,
         OllamaClient ollama,
         CodeVectorStore vectorStore,
-        IChunk chunk,
         IHubContext<EmbeddingHub> hubContext,
         ILogger logger,
         CancellationToken requestAborted)
     {
         // Declare a dictionary to test whether the hashing and stable GUID generation is working as expected
         var testDict = new ConcurrentDictionary<string, Guid>();
-        var rootPath = settings.RepositoryPath;
+        var rootPath = _settings.RepositoryPath;
         var writePath = Path.Combine(Path.GetTempPath(), $"write-{operationId}");
-
-        var extensions = settings.FileExtensions
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(requestAborted);
         var token = cts.Token;
 
         try
         {
+            var extensions = _settings.FileExtensions
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
             await vectorStore.EnsureCollectionAsync(token);
 
             int total = 0;
@@ -183,18 +185,20 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
             var parallelOptions = new ParallelOptions
             {
                 CancellationToken = token,
-                MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount / 2, 1)
+                MaxDegreeOfParallelism = Math.Max(_settings.MaxDegreeOfParallelism, 1)
             };
 
             Directory.CreateDirectory(writePath);
-            await chunk.ProcessChunksAsync(writePath, rootPath, extensions, token);
+            await ProcessChunksAsync(writePath, rootPath, extensions, token);
 
             var chunks = Directory.EnumerateFiles(writePath, "*.*");
 
             await Parallel.ForEachAsync(chunks, parallelOptions, async (batch, ct) =>
             {
+                ct.ThrowIfCancellationRequested();
+
                 var content = await File.ReadAllTextAsync(batch, ct);
-                var embeddings = await ollama.EmbedAsync($"{content}", ct);
+                var embeddings = await ollama.EmbedAsync(content, ct);
 
                 var hash = CodeVectorStore.ToSha256(content);
                 var id = CodeVectorStore.StableGuidFromString(hash);
@@ -202,8 +206,10 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
                 var isUniqueKey = testDict.TryAdd(hash, id);
                 if (!isUniqueKey)
                 {
-                    logger.LogWarning("Hash collision detected for file {FilePath} with hash {Hash}", batch, hash);
-                    throw new Exception("Hash collision detected, aborting operation");
+                    logger.LogWarning(
+                        "Hash collision detected for file {FilePath} with hash {Hash}", batch, hash);
+                    throw new InvalidOperationException(
+                        $"Duplicate hash '{hash}' for file '{batch}'.");
                 }
 
                 var record = new CodeChunk
@@ -250,7 +256,7 @@ public class CodeChunking(ILogger<CodeChunking> logger) : IChunk
         }
         finally
         {
-            if (Directory.Exists(writePath) && settings.DeleteTemporaryFiles)
+            if (Directory.Exists(writePath) && _settings.DeleteTemporaryFiles)
             {
                 try
                 {

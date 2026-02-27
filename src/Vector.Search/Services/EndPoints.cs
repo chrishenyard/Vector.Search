@@ -92,13 +92,11 @@ public class EndPoints
                 httpContext.RequestAborted);
 
             _ = Task.Run(async () =>
-                CodeChunking.ProcessFilesAsync(
+                chunk.ProcessFilesAsync(
                     operationId,
                     request.ConnectionId,
-                    options.Value,
                     ollama,
                     vectorStore,
-                    chunk,
                     hubContext,
                     logger,
                     httpContext.RequestAborted), httpContext.RequestAborted);
