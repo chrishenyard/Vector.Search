@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using System.Text;
 using Vector.Store.Hubs;
 using Vector.Store.Models;
@@ -56,7 +57,13 @@ public class CodeChunking(
                     switch (fileExtension.ToLower())
                     {
                         case ".cs":
-                            await ChunkCSharpAsync(file, rootPath, writePath, minimumChunkSize, cancellationToken);
+                            await ChunkCSharpAsync(
+                                file,
+                                rootPath,
+                                writePath,
+                                minimumChunkSize,
+                                _settings.LookAheadLines,
+                                cancellationToken);
                             break;
                         default:
                             _logger.LogWarning("Unsupported file extension {FileExtension} for file {FilePath}", fileExtension, file);
@@ -71,8 +78,10 @@ public class CodeChunking(
         string rootPath,
         string savePath,
         int minimumChunkSize,
+        int lookAheadLineCount,
         CancellationToken cancellationToken)
     {
+        var lookaheadLines = new List<string>(lookAheadLineCount);
         var characterCount = 0;
         var filename = Path.GetFileName(filePath);
         var tempFileName = CreateTempFileName(filename);
@@ -102,47 +111,60 @@ public class CodeChunking(
 
                 if (characterCount >= minimumChunkSize && isEndOfBlock)
                 {
-                    // Look ahead until there are no more end of block characters
-                    // to avoid splitting in the middle of a code block
-                    var writeLastLookAheadLine = false;
+                    // Look ahead to find the end of the next block or until lookahead line limit is reached
+                    // This helps to avoid splitting in the middle of a code block, which can be important
+                    // for maintaining context in embeddings
+                    var lineCount = 0;
+                    var endOfBlockLine = 0;
 
                     while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-
-                        if (string.IsNullOrWhiteSpace(line))
-                        {
-                            continue;
-                        }
+                        lookaheadLines.Add(line);
 
                         if (IsEndOfBlock(line))
                         {
-                            await writer.WriteLineAsync(line.AsMemory(), cancellationToken);
-                            characterCount += line.Length + Environment.NewLine.Length;
+                            endOfBlockLine = lineCount;
                         }
-                        else
+
+                        if (lineCount == lookAheadLineCount - 1)
                         {
-                            writeLastLookAheadLine = true;
                             break;
                         }
+
+                        lineCount++;
                     }
 
-                    await writer.FlushAsync(cancellationToken);
-                    await writer.DisposeAsync();
-
-                    tempFileName = CreateTempFileName(filename);
-                    tempFilePath = Path.Combine(rootPath, savePath, tempFileName);
-                    writer = CreateWriter(tempFilePath);
-
-                    if (writeLastLookAheadLine && line != null)
+                    if (lookaheadLines.Count > 0)
                     {
-                        await writer.WriteLineAsync(line.AsMemory(), cancellationToken);
-                        characterCount = line.Length + Environment.NewLine.Length;
+                        // If we found an end of block within the lookahead lines, we split the chunk there.
+                        // Otherwise, we just include all lookahead lines in the current chunk.
+                        // Leave at least two lines in the next chunk to avoid very small chunks
+                        var linesRemaing = lookaheadLines.Count - endOfBlockLine + 1; // +1 because endOfBlockLine is 0-based index
+
+                        for (var i = 0; i < lookaheadLines.Count; i++)
+                        {
+                            var lookaheadLine = lookaheadLines[i];
+
+                            if (i == endOfBlockLine && linesRemaing >= 2)
+                            {
+                                await writer.WriteLineAsync(lookaheadLine.AsMemory(), cancellationToken);
+                                await writer.FlushAsync(cancellationToken);
+                                await writer.DisposeAsync();
+
+                                tempFileName = CreateTempFileName(filename);
+                                tempFilePath = Path.Combine(rootPath, savePath, tempFileName);
+                                writer = CreateWriter(tempFilePath);
+                            }
+                            else
+                            {
+                                await writer.WriteLineAsync(lookaheadLine.AsMemory(), cancellationToken);
+                                characterCount += lookaheadLine.Length + Environment.NewLine.Length;
+                            }
+                        }
                     }
-                    else
-                    {
-                        characterCount = 0;
-                    }
+
+                    characterCount = 0;
                 }
             }
         }
@@ -200,8 +222,9 @@ public class CodeChunking(
                 var content = await File.ReadAllTextAsync(batch, ct);
                 var embeddings = await ollama.EmbedAsync(content, ct);
 
-                var hash = CodeVectorStore.ToSha256(content);
-                var id = CodeVectorStore.StableGuidFromString(hash);
+                var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(content));
+                var hash = Convert.ToHexString(bytes).ToLowerInvariant();
+                var id = CodeVectorStore.StableGuidFromString(bytes);
 
                 var isUniqueKey = testDict.TryAdd(hash, id);
                 if (!isUniqueKey)

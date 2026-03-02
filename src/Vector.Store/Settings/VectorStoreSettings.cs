@@ -24,4 +24,6 @@ public class VectorStoreSettings
     public string ChatModel { get; set; } = null!;
 
     public int MaxDegreeOfParallelism { get; set; } = 1;
+
+    public int LookAheadLines { get; set; } = 5;
 }

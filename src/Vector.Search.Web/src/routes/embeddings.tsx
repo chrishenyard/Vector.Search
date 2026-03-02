@@ -101,18 +101,17 @@ function EmbeddingsRoute() {
 
       try {
         await disconnectFromHub();
+        addMessage({
+          type: "signalr",
+          message: `${msg.operationId}: - Completed. Indexed ${msg.indexed} chunks.`,
+          data: msg,
+        });
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         addError(
           `Error disconnecting from hub after embedding completion: ${errorMsg}`,
         );
       }
-
-      addMessage({
-        type: "signalr",
-        message: `${msg.operationId}: - Completed. Indexed ${msg.indexed} chunks.`,
-        data: msg,
-      });
     },
     [],
   );
@@ -130,18 +129,17 @@ function EmbeddingsRoute() {
 
       try {
         await disconnectFromHub();
+        addMessage({
+          type: "signalr",
+          message: `${msg.operationId}: - Error: ${msg.error}`,
+          data: msg,
+        });
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         addError(
           `Error disconnecting from hub after embedding error: ${errorMsg}`,
         );
       }
-
-      addMessage({
-        type: "signalr",
-        message: `${msg.operationId}: - Error: ${msg.error}`,
-        data: msg,
-      });
     },
     [],
   );
@@ -165,15 +163,14 @@ function EmbeddingsRoute() {
 
     try {
       await disconnectFromHub();
+      addMessage({
+        type: "system",
+        message: "Cleaned up SignalR connection and event listeners.",
+      });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       addError(`Error during cleanup: ${errorMsg}`);
     }
-
-    addMessage({
-      type: "system",
-      message: "Cleaned up SignalR connection and event listeners.",
-    });
   }, []);
 
   const handleBeforeUnload = (event: BeforeUnloadEvent) => {

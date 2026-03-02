@@ -1,7 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
 using Microsoft.Extensions.VectorData;
-using System.Security.Cryptography;
-using System.Text;
 using Vector.Store.Models;
 using Vector.Store.Settings;
 
@@ -54,15 +52,8 @@ public sealed class CodeVectorStore(
         return results;
     }
 
-    public static string ToSha256(string input)
+    public static Guid StableGuidFromString(byte[] bytes)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return Convert.ToHexString(bytes).ToLowerInvariant();
-    }
-
-    public static Guid StableGuidFromString(string input)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         Span<byte> guidBytes = stackalloc byte[16];
         bytes.AsSpan(0, 16).CopyTo(guidBytes);
         return new Guid(guidBytes);
