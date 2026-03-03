@@ -61,7 +61,6 @@ public class CodeChunkingTests
 
             Assert.NotEmpty(chunkFiles); // At least one chunk should be created
 
-            // Optionally assert that each file has content
             foreach (var chunkFile in chunkFiles)
             {
                 var content = await File.ReadAllTextAsync(chunkFile);
@@ -70,17 +69,10 @@ public class CodeChunkingTests
         }
         finally
         {
-            // Cleanup
+            // Clean up
             if (Directory.Exists(rootPath))
             {
-                try
-                {
-                    Directory.Delete(rootPath, recursive: true);
-                }
-                catch
-                {
-                    // ignore cleanup failures
-                }
+                Directory.Delete(rootPath, recursive: true);
             }
         }
     }
@@ -89,8 +81,7 @@ public class CodeChunkingTests
     public async Task GetChunksAsync_CodeChunkFiles()
     {
         // File extensions to consider for chunking
-        var fileExtensiions = (".cs")
-            .Split(',');
+        string[] fileExtensiions = [".cs"];
 
         var root = Path.Combine(Path.GetTempPath(), "CodeChunkingTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -124,7 +115,6 @@ public class CodeChunkingTests
 
             Assert.NotEmpty(chunkFiles); // At least one chunk should be created
 
-            // Optionally assert that each file has content
             foreach (var chunkFile in chunkFiles)
             {
                 var content = await File.ReadAllTextAsync(chunkFile);
@@ -133,17 +123,65 @@ public class CodeChunkingTests
         }
         finally
         {
-            // Cleanup
+            // Clean up
             if (Directory.Exists(root))
             {
-                try
-                {
-                    Directory.Delete(root, recursive: true);
-                }
-                catch
-                {
-                    // ignore cleanup failures
-                }
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task GetChunksAsync_CodeChunkFiles_NoSmallChunks()
+    {
+        // File extensions to consider for chunking
+        string[] fileExtensiions = [".cs"];
+
+        var root = Path.Combine(Path.GetTempPath(), "CodeChunkingTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+
+        var rootPath = Path.Combine(root, "src");
+        var writePath = Path.Combine(root, "write");
+        var filePath = Path.Combine(rootPath, "test.cs");
+        Directory.CreateDirectory(rootPath);
+        Directory.CreateDirectory(writePath);
+        File.Copy("Resources/GlobalExceptionHandler.txt", filePath, overwrite: true);
+
+        var options = Options.Create(new VectorStoreSettings
+        {
+            DeleteTemporaryFiles = false,
+            MaxDegreeOfParallelism = 4
+        });
+
+        var sut = new CodeChunking(
+            options,
+            new LoggerFactory().CreateLogger<CodeChunking>());
+        var cts = new CancellationTokenSource();
+
+        try
+        {
+            // Act
+            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensiions, cts.Token, 1000);
+
+            var chunkFiles = Directory
+                .EnumerateFiles(writePath, "*.txt", SearchOption.TopDirectoryOnly)
+                .ToList();
+
+            Assert.NotEmpty(chunkFiles);
+            Assert.Equal(2, chunkFiles.Count);
+
+            foreach (var chunkFile in chunkFiles)
+            {
+                var content = await File.ReadAllTextAsync(chunkFile);
+                Assert.False(string.IsNullOrWhiteSpace(content));
+            }
+        }
+        finally
+        {
+            // Clean up
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
             }
         }
     }

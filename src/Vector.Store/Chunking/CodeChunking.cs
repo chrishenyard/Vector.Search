@@ -24,7 +24,7 @@ public class CodeChunking(
 {
     private readonly VectorStoreSettings _settings = settings.Value;
     private readonly ILogger<CodeChunking> _logger = logger;
-    private const char EndOfBlockMarker = '}';
+    private string[] EndOfBlockMarkers = ["}", "};", "});"];
 
     public async Task ProcessChunksAsync(
         string writePath,
@@ -73,7 +73,7 @@ public class CodeChunking(
             });
     }
 
-    private static async Task ChunkCSharpAsync(
+    private async Task ChunkCSharpAsync(
         string filePath,
         string rootPath,
         string savePath,
@@ -109,7 +109,7 @@ public class CodeChunking(
                 var isEndOfBlock = IsEndOfBlock(line);
                 characterCount += line.Length + Environment.NewLine.Length;
 
-                if (characterCount >= minimumChunkSize && isEndOfBlock)
+                if (characterCount >= minimumChunkSize && !isEndOfBlock)
                 {
                     // Look ahead to find the end of the next block or until lookahead line limit is reached
                     // This helps to avoid splitting in the middle of a code block, which can be important
@@ -291,6 +291,8 @@ public class CodeChunking(
                 }
             }
         }
+
+
     }
 
     private static string CreateTempFileName(string filename) => $"{filename}_{Guid.NewGuid()}.txt";
@@ -298,7 +300,7 @@ public class CodeChunking(
     private static StreamWriter CreateWriter(string path) =>
         new(path, append: true, encoding: Encoding.UTF8);
 
-    private static bool IsEndOfBlock(string line)
+    private bool IsEndOfBlock(string line)
     {
         ReadOnlySpan<char> span = line.AsSpan();
         var idx = span.Length - 1;
@@ -309,7 +311,15 @@ public class CodeChunking(
             idx--;
         }
 
-        return idx >= 0 && span[idx] == EndOfBlockMarker;
+        foreach (var marker in EndOfBlockMarkers)
+        {
+            if (idx >= marker.Length - 1 && span.Slice(idx - marker.Length + 1, marker.Length).SequenceEqual(marker))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

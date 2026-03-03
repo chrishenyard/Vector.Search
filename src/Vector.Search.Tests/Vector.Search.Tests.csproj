@@ -9,10 +9,14 @@
 
   <ItemGroup>
     <None Remove="Resources\Code.txt" />
+    <None Remove="Resources\GlobalExceptionHandler.txt" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Resources\Code.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\GlobalExceptionHandler.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
