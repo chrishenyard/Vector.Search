@@ -6,8 +6,10 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Vector.Files.Chunking;
 using Vector.Search.Health;
+using Vector.Search.Serialization;
 using Vector.Search.Services;
 using Vector.Search.Settings;
+using Vector.Store.ParserConfiguration;
 using Vector.Store.Services;
 using Vector.Store.Settings;
 using Vector.Store.Stores;
@@ -195,5 +197,21 @@ public static class ServiceExtensions
             .AddCheck<AppHealthCheck>("app_health_check");
 
         return services;
+    }
+
+    public static WebApplicationBuilder AddFileParsers(this WebApplicationBuilder builder)
+    {
+        var fileParserConfiguration = DeserializeJson
+            .Get<FileParserFactoryConfiguration>("ParserConfiguration/FileParserFactoryConfiguration.json");
+
+        builder.Services.AddSingleton<IFileParserFactoryConfiguration>(sp =>
+        {
+            return new FileParserFactoryConfiguration
+            {
+                FileParsers = fileParserConfiguration.FileParsers
+            };
+        });
+
+        return builder;
     }
 }

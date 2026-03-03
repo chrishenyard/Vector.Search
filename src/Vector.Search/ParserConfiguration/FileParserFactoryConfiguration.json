@@ -1,0 +1,8 @@
+{
+  "FileParsers": {
+    "CSharp": {
+      "ParserType": "Vector.Store.Parsers.CSharpFileParser",
+      "FileExtension": ".cs"
+    }
+  }
+}

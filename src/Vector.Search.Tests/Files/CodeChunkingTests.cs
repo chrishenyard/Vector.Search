@@ -2,18 +2,32 @@
 using Microsoft.Extensions.Options;
 using System.Text;
 using Vector.Files.Chunking;
+using Vector.Store.ParserConfiguration;
 using Vector.Store.Settings;
 
 namespace Vector.Tools.Tests.Files;
 
 public class CodeChunkingTests
 {
+    private readonly IFileParserFactory _fileParserFactory;
+
+    public CodeChunkingTests()
+    {
+        var factoryConfig = new FileParserFactoryConfiguration
+        {
+            FileParsers = new Dictionary<string, FileParser>
+            {
+                { "csharp", new FileParser { ParserType = "Vector.Store.Parsers.CSharpFileParser", FileExtension = ".cs" } },
+            }
+        };
+
+        _fileParserFactory = new FileParserFactory(factoryConfig);
+    }
+
     [Fact]
     public async Task GetChunksAsync_CreatesChunkFiles_ForLargeInput()
     {
-        // File extensions to consider for chunking
-        var fileExtensiions = (".cs,.json,.yml,.yaml,.csproj,.props,.targets,.md,.sql,.js,.tsx,.ts,.html,.css,.ps1")
-            .Split(',');
+        string[] fileExtensions = [".cs"];
 
         // Arrange
         var rootPath = Path.Combine(Path.GetTempPath(), "CodeChunkingTests", Guid.NewGuid().ToString("N"));
@@ -42,6 +56,7 @@ public class CodeChunkingTests
         });
 
         var sut = new CodeChunking(
+            _fileParserFactory,
             options,
             new LoggerFactory().CreateLogger<CodeChunking>());
         var cts = new CancellationTokenSource();
@@ -49,7 +64,7 @@ public class CodeChunkingTests
         try
         {
             // Act
-            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensiions, cts.Token, 5000);
+            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 5000);
 
             // Assert
             var chunkDir = Path.Combine(rootPath, writePath);
@@ -80,8 +95,7 @@ public class CodeChunkingTests
     [Fact]
     public async Task GetChunksAsync_CodeChunkFiles()
     {
-        // File extensions to consider for chunking
-        string[] fileExtensiions = [".cs"];
+        string[] fileExtensions = [".cs"];
 
         var root = Path.Combine(Path.GetTempPath(), "CodeChunkingTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -100,6 +114,7 @@ public class CodeChunkingTests
         });
 
         var sut = new CodeChunking(
+            _fileParserFactory,
             options,
             new LoggerFactory().CreateLogger<CodeChunking>());
         var cts = new CancellationTokenSource();
@@ -107,7 +122,7 @@ public class CodeChunkingTests
         try
         {
             // Act
-            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensiions, cts.Token, 5000);
+            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 5000);
 
             var chunkFiles = Directory
                 .EnumerateFiles(writePath, "*.txt", SearchOption.TopDirectoryOnly)
@@ -134,9 +149,7 @@ public class CodeChunkingTests
     [Fact]
     public async Task GetChunksAsync_CodeChunkFiles_NoSmallChunks()
     {
-        // File extensions to consider for chunking
-        string[] fileExtensiions = [".cs"];
-
+        string[] fileExtensions = [".cs"];
         var root = Path.Combine(Path.GetTempPath(), "CodeChunkingTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
 
@@ -154,6 +167,7 @@ public class CodeChunkingTests
         });
 
         var sut = new CodeChunking(
+            _fileParserFactory,
             options,
             new LoggerFactory().CreateLogger<CodeChunking>());
         var cts = new CancellationTokenSource();
@@ -161,7 +175,7 @@ public class CodeChunkingTests
         try
         {
             // Act
-            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensiions, cts.Token, 1000);
+            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 1000);
 
             var chunkFiles = Directory
                 .EnumerateFiles(writePath, "*.txt", SearchOption.TopDirectoryOnly)
