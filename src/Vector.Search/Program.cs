@@ -23,7 +23,8 @@ builder.Host
     });
 
 builder
-    .AddConfiguration();
+    .AddConfiguration()
+    .AddFileParsers();
 
 var configuration = builder.Configuration;
 

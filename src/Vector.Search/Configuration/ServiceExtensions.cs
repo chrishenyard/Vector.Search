@@ -81,7 +81,8 @@ public static class ServiceExtensions
         var connectionString = config.GetConnectionString("DatabaseContext")!;
 
         services
-            .AddScoped<IChunk, CodeChunking>()
+            .AddSingleton<IFileParserFactory, FileParserFactory>()
+            .AddSingleton<IChunk, CodeChunking>()
             .AddPostgresVectorStore(connectionString);
 
         services.AddScoped<IOllamaClientFactory, OllamaClientFactory>();
