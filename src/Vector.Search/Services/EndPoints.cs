@@ -116,22 +116,20 @@ public class EndPoints
             var qvec = await ollama.EmbedAsync(req.Question, ct);
             var searches = await vectorStore.SearchAsync(qvec, req.TopK, ct);
 
-            var context = string.Join("\n\n---\n\n", searches.Select(s =>
-                $@"{s.Record.Content}"));
+            var promptReadTasks = new[]
+{
+                File.ReadAllTextAsync("Prompts/CodeSystemPrompt.txt", ct),
+                File.ReadAllTextAsync("Prompts/CodeUserPrompt.txt", ct)
+            };
+            var prompts = await Task.WhenAll(promptReadTasks);
 
-            var system =
-                @"You are a senior .NET reviewer. Answer using ONLY the provided code context. 
-                If the context does not contain the answer, say what you could not find and suggest what file to index next. ";
+            var codeSystemPrompt = prompts[0];
+            var codeUserPrompt = prompts[1];
+            codeUserPrompt = codeUserPrompt
+                .Replace("{{Question}}", req.Question)
+                .Replace("{{Context}}", string.Join("\n\n---\n\n", searches.Select(s => s.Record.Content)));
 
-            var user =
-                $@"Question: {req.Question}
-                Code context:
-                {context}
-
-                Answer with:
-                1) explanation";
-
-            var answer = await ollama.ChatAsync(system, user, ct);
+            var answer = await ollama.ChatAsync(codeSystemPrompt, codeUserPrompt, ct);
             var searchResponses = searches
                 .Select(s => new SearchResonse(s.Record, s.Score)).ToList();
 
