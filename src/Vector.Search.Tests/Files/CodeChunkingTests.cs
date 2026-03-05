@@ -2,27 +2,15 @@
 using Microsoft.Extensions.Options;
 using System.Text;
 using Vector.Files.Chunking;
+using Vector.Search.Tests.Files;
 using Vector.Store.ParserConfiguration;
 using Vector.Store.Settings;
 
 namespace Vector.Tools.Tests.Files;
 
-public class CodeChunkingTests
+public class CodeChunkingTests(CodeChunkingFixture codeChunkingFixture) : IClassFixture<CodeChunkingFixture>
 {
-    private readonly IFileParserFactory _fileParserFactory;
-
-    public CodeChunkingTests()
-    {
-        var factoryConfig = new FileParserFactoryConfiguration
-        {
-            FileParsers = new Dictionary<string, FileParser>
-            {
-                { "csharp", new FileParser { ParserType = "Vector.Store.Parsers.CSharpFileParser", FileExtension = ".cs" } },
-            }
-        };
-
-        _fileParserFactory = new FileParserFactory(factoryConfig);
-    }
+    private readonly IFileParserFactory _fileParserFactory = codeChunkingFixture.FileParserFactory;
 
     [Fact]
     public async Task GetChunksAsync_CreatesChunkFiles_ForLargeInput()
