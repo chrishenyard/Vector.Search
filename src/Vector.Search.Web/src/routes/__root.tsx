@@ -13,6 +13,7 @@ interface NavLink {
 const navLinks: NavLink[] = [
   { to: "/", label: "Home" },
   { to: "/embeddings", label: "Embeddings" },
+  { to: "/code-search", label: "Code Search" },
   // Add more links here as needed
 ];
 

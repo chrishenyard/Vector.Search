@@ -1,3 +1,5 @@
+import { AxiosRequestHeaders, InternalAxiosRequestConfig } from "axios";
+
 export interface ApiError {
   detail?: string;
   title?: string;
@@ -14,8 +16,8 @@ export interface ApiResponse<T> {
   data: T;
   status: number;
   statusText: string;
-  headers: (H & RawAxiosResponseHeaders) | AxiosResponseHeaders;
-  config: InternalAxiosRequestConfig<D>;
-  request?: any;
+  headers: AxiosRequestHeaders;
+  config: InternalAxiosRequestConfig;
+  request?: unknown;
   ok: boolean;
 }
