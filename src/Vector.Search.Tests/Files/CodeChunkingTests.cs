@@ -1,16 +1,14 @@
-﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using System.Text;
+﻿using System.Text;
 using Vector.Files.Chunking;
 using Vector.Search.Tests.Files;
 using Vector.Store.ParserConfiguration;
-using Vector.Store.Settings;
 
 namespace Vector.Tools.Tests.Files;
 
 public class CodeChunkingTests(CodeChunkingFixture codeChunkingFixture) : IClassFixture<CodeChunkingFixture>
 {
     private readonly IFileParserFactory _fileParserFactory = codeChunkingFixture.FileParserFactory;
+    private readonly CodeChunking _codeChunking = codeChunkingFixture.CodeChunking;
 
     [Fact]
     public async Task GetChunksAsync_CreatesChunkFiles_ForLargeInput()
@@ -36,23 +34,12 @@ public class CodeChunkingTests(CodeChunkingFixture codeChunkingFixture) : IClass
         }
 
         await File.WriteAllTextAsync(sourceFile, sb.ToString());
-
-        var options = Options.Create(new VectorStoreSettings
-        {
-            DeleteTemporaryFiles = true,
-            MaxDegreeOfParallelism = 4
-        });
-
-        var sut = new CodeChunking(
-            _fileParserFactory,
-            options,
-            new LoggerFactory().CreateLogger<CodeChunking>());
         var cts = new CancellationTokenSource();
 
         try
         {
             // Act
-            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 5000);
+            await _codeChunking.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 5000);
 
             // Assert
             var chunkDir = Path.Combine(rootPath, writePath);
@@ -95,22 +82,12 @@ public class CodeChunkingTests(CodeChunkingFixture codeChunkingFixture) : IClass
         Directory.CreateDirectory(writePath);
         File.Copy("Resources/Code.txt", filePath, overwrite: true);
 
-        var options = Options.Create(new VectorStoreSettings
-        {
-            DeleteTemporaryFiles = true,
-            MaxDegreeOfParallelism = 4
-        });
-
-        var sut = new CodeChunking(
-            _fileParserFactory,
-            options,
-            new LoggerFactory().CreateLogger<CodeChunking>());
         var cts = new CancellationTokenSource();
 
         try
         {
             // Act
-            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 5000);
+            await _codeChunking.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 5000);
 
             var chunkFiles = Directory
                 .EnumerateFiles(writePath, "*.txt", SearchOption.TopDirectoryOnly)
@@ -148,22 +125,12 @@ public class CodeChunkingTests(CodeChunkingFixture codeChunkingFixture) : IClass
         Directory.CreateDirectory(writePath);
         File.Copy("Resources/GlobalExceptionHandler.txt", filePath, overwrite: true);
 
-        var options = Options.Create(new VectorStoreSettings
-        {
-            DeleteTemporaryFiles = false,
-            MaxDegreeOfParallelism = 4
-        });
-
-        var sut = new CodeChunking(
-            _fileParserFactory,
-            options,
-            new LoggerFactory().CreateLogger<CodeChunking>());
         var cts = new CancellationTokenSource();
 
         try
         {
             // Act
-            await sut.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 1000);
+            await _codeChunking.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 1000);
 
             var chunkFiles = Directory
                 .EnumerateFiles(writePath, "*.txt", SearchOption.TopDirectoryOnly)
