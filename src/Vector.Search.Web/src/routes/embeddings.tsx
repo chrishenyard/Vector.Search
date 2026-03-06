@@ -17,7 +17,7 @@ function EmbeddingsRoute() {
   const [globalErrors, setGlobalErrors] = useState<string[]>([]);
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [retryMessage, setRetryMessage] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const attemptsRef = useRef(0);
   const maxRetries = 5;
 
@@ -63,7 +63,10 @@ function EmbeddingsRoute() {
   );
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    container.scrollTop = container.scrollHeight;
   };
 
   useEffect(scrollToBottom, [messages]);
@@ -444,7 +447,10 @@ function EmbeddingsRoute() {
       )}
 
       {/* Console Messages */}
-      <div className="flex-1 min-h-0 min-w-0 p-4 bg-black font-mono text-sm overflow-y-auto overflow-x-hidden terminal-scroll">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 min-h-0 min-w-0 p-4 bg-black font-mono text-sm overflow-y-auto overflow-x-hidden terminal-scroll"
+      >
         {messages.length === 0 ? (
           <div className="text-gray-500 italic">
             Console ready. Click "Start Embedding" to begin processing and
@@ -474,7 +480,6 @@ function EmbeddingsRoute() {
             </div>
           ))
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Status Bar */}

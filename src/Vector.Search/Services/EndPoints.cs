@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
@@ -107,7 +106,7 @@ public class EndPoints
             });
         });
 
-        app.MapPost("/ask", async (
+        app.MapPost("/api/ask", async (
             AskRequest req,
             OllamaClient ollama,
             CodeVectorStore vectorStore,
@@ -134,17 +133,6 @@ public class EndPoints
                 .Select(s => new SearchResonse(s.Record, s.Score)).ToList();
 
             return Results.Ok(new AskResponse(answer, searchResponses));
-        });
-
-        app.MapPost("/api/code", async (
-            [FromForm] IFormFile file,
-            ILogger<EndPoints> logger) =>
-        {
-            return Results.Ok(new
-            {
-                filename = file.FileName,
-                length = file.Length
-            });
         });
     }
 }

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AxiosError } from "axios";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import apiClient, { fetchCsrfToken } from "../services/api";
 import { ApiError, ApiResponse } from "../types/api-response-types";
 import {
@@ -207,7 +207,7 @@ function RouteComponent() {
           <button
             type="submit"
             disabled={!canSubmit}
-            className={`h-[42px] rounded-md px-4 py-2 text-sm font-semibold text-white transition-colors ${
+            className={`h-10.5 rounded-md px-4 py-2 text-sm font-semibold text-white transition-colors ${
               canSubmit
                 ? "bg-blue-600 hover:bg-blue-700"
                 : "cursor-not-allowed bg-gray-600"
