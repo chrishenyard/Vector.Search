@@ -95,6 +95,7 @@ public class CSharpFileParser : IFileParser
                         }
                     }
 
+                    // Reset lookahead lines and character count for the next chunk
                     characterCount = 0;
                 }
             }
