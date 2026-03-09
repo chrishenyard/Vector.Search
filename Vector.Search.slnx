@@ -18,7 +18,12 @@
     <Platform Project="AnyCPU" />
     <Build />
   </Project>
-  <Project Path="src/Vector.Store/Vector.Store.csproj" Id="b9db234f-67d5-4ca5-b0fa-3c2aea5026e0" />
   <Project Path="src/Vector.Search.Tests/Vector.Search.Tests.csproj" Id="f5e885b0-8dea-4729-867e-22af448d6fb1" />
+  <Project Path="src/Vector.Search.Web/Vector.Search.Web.esproj">
+    <Platform Project="AnyCPU" />
+    <Build />
+    <Deploy />
+  </Project>
   <Project Path="src/Vector.Search/Vector.Search.csproj" />
+  <Project Path="src/Vector.Store/Vector.Store.csproj" Id="b9db234f-67d5-4ca5-b0fa-3c2aea5026e0" />
 </Solution>
