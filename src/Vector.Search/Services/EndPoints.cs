@@ -83,6 +83,7 @@ public class EndPoints
             ILogger<EndPoints> logger,
             HttpContext httpContext) =>
         {
+            var vectorSettings = options.Value;
             var operationId = Guid.NewGuid().ToString("N");
 
             await hubContext.Clients.Client(request.ConnectionId).SendAsync(
@@ -94,6 +95,7 @@ public class EndPoints
                 chunk.ProcessFilesAsync(
                     operationId,
                     request.ConnectionId,
+                    vectorSettings.MinChunkSize,
                     ollama,
                     vectorStore,
                     hubContext,
@@ -110,13 +112,15 @@ public class EndPoints
             AskRequest req,
             OllamaClient ollama,
             CodeVectorStore vectorStore,
+            IOptions<OllamaSettings> ollamaOptions,
             CancellationToken ct) =>
         {
+            var ollamaSettings = ollamaOptions.Value;
             var qvec = await ollama.EmbedAsync(req.Question, ct);
             var searches = await vectorStore.SearchAsync(qvec, req.TopK, ct);
 
             var promptReadTasks = new[]
-{
+            {
                 File.ReadAllTextAsync("Prompts/CodeSystemPrompt.txt", ct),
                 File.ReadAllTextAsync("Prompts/CodeUserPrompt.txt", ct)
             };
@@ -125,8 +129,9 @@ public class EndPoints
             var codeSystemPrompt = prompts[0];
             var codeUserPrompt = prompts[1];
             codeUserPrompt = codeUserPrompt
-                .Replace("{{Question}}", req.Question)
-                .Replace("{{Context}}", string.Join("\n\n---\n\n", searches.Select(s => s.Record.Content)));
+                .Replace("{{Question}}", req.Question, StringComparison.OrdinalIgnoreCase)
+                .Replace("{{Context}}", string.Join("\n\n---\n\n",
+                searches.Select(s => s.Record.Content)), StringComparison.OrdinalIgnoreCase);
 
             var answer = await ollama.ChatAsync(codeSystemPrompt, codeUserPrompt, ct);
             var searchResponses = searches

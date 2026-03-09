@@ -13,11 +13,12 @@ public interface IChunk
         string rootPath,
         string[] fileExtensions,
         CancellationToken token,
-        int minimumChunkSize = 5000);
+        int minChunkSize = 1500);
 
     Task ProcessFilesAsync(
         string operationId,
         string connectionId,
+        int minChunkSize,
         OllamaClient ollama,
         CodeVectorStore vectorStore,
         IHubContext<EmbeddingHub> hubContext,

@@ -39,7 +39,7 @@ public class CodeChunkingTests(CodeChunkingFixture codeChunkingFixture) : IClass
         try
         {
             // Act
-            await _codeChunking.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 5000);
+            await _codeChunking.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 1500);
 
             // Assert
             var chunkDir = Path.Combine(rootPath, writePath);
@@ -87,7 +87,7 @@ public class CodeChunkingTests(CodeChunkingFixture codeChunkingFixture) : IClass
         try
         {
             // Act
-            await _codeChunking.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 5000);
+            await _codeChunking.ProcessChunksAsync(writePath, rootPath, fileExtensions, cts.Token, 1500);
 
             var chunkFiles = Directory
                 .EnumerateFiles(writePath, "*.txt", SearchOption.TopDirectoryOnly)

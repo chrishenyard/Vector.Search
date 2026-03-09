@@ -33,7 +33,7 @@ public class CodeChunking(
         string rootPath,
         string[] fileExtensions,
         CancellationToken token,
-        int minimumChunkSize = 1000)
+        int minChunkSize = 1500)
     {
         ArgumentException.ThrowIfNullOrEmpty(writePath, nameof(writePath));
         ArgumentException.ThrowIfNullOrEmpty(rootPath, nameof(rootPath));
@@ -64,7 +64,7 @@ public class CodeChunking(
                                 file,
                                 rootPath,
                                 writePath,
-                                minimumChunkSize,
+                                minChunkSize,
                                 _settings.LookAheadLines,
                                 cancellationToken);
                             break;
@@ -79,6 +79,7 @@ public class CodeChunking(
     public async Task ProcessFilesAsync(
         string operationId,
         string connectionId,
+        int minChunkSize,
         OllamaClient ollama,
         CodeVectorStore vectorStore,
         IHubContext<EmbeddingHub> hubContext,
@@ -109,7 +110,7 @@ public class CodeChunking(
             };
 
             Directory.CreateDirectory(writePath);
-            await ProcessChunksAsync(writePath, rootPath, extensions, token);
+            await ProcessChunksAsync(writePath, rootPath, extensions, token, minChunkSize);
 
             var chunks = Directory.EnumerateFiles(writePath, "*.*");
 

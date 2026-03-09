@@ -26,4 +26,6 @@ public class VectorStoreSettings
     public int MaxDegreeOfParallelism { get; set; } = 1;
 
     public int LookAheadLines { get; set; } = 5;
+
+    public int MinChunkSize { get; set; } = 1500;
 }
