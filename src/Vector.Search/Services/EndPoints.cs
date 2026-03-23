@@ -2,12 +2,12 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
-using Vector.Files.Chunking;
+using Vector.DataIngestion.Chunkers;
+using Vector.DataIngestion.Hubs;
+using Vector.DataIngestion.Services;
+using Vector.DataIngestion.Settings;
+using Vector.DataIngestion.Stores;
 using Vector.Search.Models;
-using Vector.Store.Hubs;
-using Vector.Store.Services;
-using Vector.Store.Settings;
-using Vector.Store.Stores;
 
 namespace Vector.Search.Services;
 

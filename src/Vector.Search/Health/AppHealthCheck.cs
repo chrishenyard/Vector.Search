@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.VectorData;
 using OllamaSharp;
-using Vector.Store.Settings;
+using Vector.DataIngestion.Settings;
 
 namespace Vector.Search.Health;
 

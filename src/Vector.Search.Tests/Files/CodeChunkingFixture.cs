@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Vector.Files.Chunking;
-using Vector.Store.ParserConfiguration;
-using Vector.Store.Settings;
+using Vector.DataIngestion.Chunkers;
+using Vector.DataIngestion.ParserConfiguration;
+using Vector.DataIngestion.Settings;
 
 namespace Vector.Search.Tests.Files;
 
@@ -17,7 +17,7 @@ public class CodeChunkingFixture
         {
             FileParsers = new Dictionary<string, FileParser>
             {
-                { "csharp", new FileParser { ParserType = "Vector.Store.Parsers.CSharpFileParser", FileExtension = ".cs" } },
+                { "csharp", new FileParser { ParserType = "Vector.DataIngestion.Parsers.CSharpFileParser", FileExtension = ".cs" } },
             }
         };
 

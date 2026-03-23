@@ -1,4 +1,4 @@
-﻿using Vector.Store.Models;
+﻿using Vector.DataIngestion.Models;
 
 namespace Vector.Search.Models;
 

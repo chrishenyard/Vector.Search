@@ -1,6 +1,6 @@
-﻿using Vector.Store.Parsers;
+﻿using Vector.DataIngestion.Parsers;
 
-namespace Vector.Store.ParserConfiguration;
+namespace Vector.DataIngestion.ParserConfiguration;
 
 public interface IFileParserFactory
 {

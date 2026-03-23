@@ -1,8 +1,8 @@
 using Serilog;
+using Vector.DataIngestion.Hubs;
 using Vector.Search;
 using Vector.Search.Configuration;
 using Vector.Search.Services;
-using Vector.Store.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 

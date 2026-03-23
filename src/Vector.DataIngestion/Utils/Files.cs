@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace Vector.Store.Utils;
+namespace Vector.DataIngestion.Utils;
 
 public static class Files
 {

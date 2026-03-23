@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
-using Vector.Store.Hubs;
-using Vector.Store.Services;
-using Vector.Store.Stores;
+using Vector.DataIngestion.Hubs;
+using Vector.DataIngestion.Services;
+using Vector.DataIngestion.Stores;
 
-namespace Vector.Files.Chunking;
+namespace Vector.DataIngestion.Chunkers;
 
 public interface IChunk
 {

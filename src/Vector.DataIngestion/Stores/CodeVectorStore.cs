@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.Options;
 using Microsoft.Extensions.VectorData;
-using Vector.Store.Models;
-using Vector.Store.Settings;
+using Vector.DataIngestion.Models;
+using Vector.DataIngestion.Settings;
 
-namespace Vector.Store.Stores;
+namespace Vector.DataIngestion.Stores;
 
 public sealed class CodeVectorStore(
     VectorStore vectorStore,

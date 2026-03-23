@@ -3,9 +3,9 @@ using OllamaSharp;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 using System.Text;
-using Vector.Store.Settings;
+using Vector.DataIngestion.Settings;
 
-namespace Vector.Store.Services;
+namespace Vector.DataIngestion.Services;
 
 public sealed class OllamaClient(
     OllamaApiClient ollamaApiClient,

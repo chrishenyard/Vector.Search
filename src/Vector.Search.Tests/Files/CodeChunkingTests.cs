@@ -1,7 +1,7 @@
 ﻿using System.Text;
-using Vector.Files.Chunking;
+using Vector.DataIngestion.Chunkers;
+using Vector.DataIngestion.ParserConfiguration;
 using Vector.Search.Tests.Files;
-using Vector.Store.ParserConfiguration;
 
 namespace Vector.Tools.Tests.Files;
 

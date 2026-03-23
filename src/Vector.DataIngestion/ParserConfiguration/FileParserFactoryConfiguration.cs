@@ -1,4 +1,4 @@
-﻿namespace Vector.Store.ParserConfiguration;
+﻿namespace Vector.DataIngestion.ParserConfiguration;
 
 public interface IFileParserFactoryConfiguration
 {

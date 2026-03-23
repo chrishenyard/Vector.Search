@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Vector.Store.Settings;
+namespace Vector.DataIngestion.Settings;
 
 public class OllamaSettings
 {

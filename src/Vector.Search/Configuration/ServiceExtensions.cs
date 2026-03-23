@@ -4,15 +4,15 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using Vector.Files.Chunking;
+using Vector.DataIngestion.Chunkers;
+using Vector.DataIngestion.ParserConfiguration;
+using Vector.DataIngestion.Services;
+using Vector.DataIngestion.Settings;
+using Vector.DataIngestion.Stores;
 using Vector.Search.Health;
 using Vector.Search.Serialization;
 using Vector.Search.Services;
 using Vector.Search.Settings;
-using Vector.Store.ParserConfiguration;
-using Vector.Store.Services;
-using Vector.Store.Settings;
-using Vector.Store.Stores;
 
 namespace Vector.Search.Configuration;
 

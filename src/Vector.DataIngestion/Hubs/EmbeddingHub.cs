@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 
-namespace Vector.Store.Hubs;
+namespace Vector.DataIngestion.Hubs;
 
 public class EmbeddingHub(ILogger<EmbeddingHub> logger) : Microsoft.AspNetCore.SignalR.Hub
 {

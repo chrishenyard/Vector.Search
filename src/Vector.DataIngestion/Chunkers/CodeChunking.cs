@@ -4,19 +4,19 @@ using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
-using Vector.Store.Hubs;
-using Vector.Store.Models;
-using Vector.Store.ParserConfiguration;
-using Vector.Store.Services;
-using Vector.Store.Settings;
-using Vector.Store.Stores;
+using Vector.DataIngestion.Hubs;
+using Vector.DataIngestion.Models;
+using Vector.DataIngestion.ParserConfiguration;
+using Vector.DataIngestion.Services;
+using Vector.DataIngestion.Settings;
+using Vector.DataIngestion.Stores;
 
 /*
     Research sources:
     https://weaviate.io/blog/chunking-strategies-for-rag
     https://aws.amazon.com/blogs/database/optimize-generative-ai-applications-with-pgvector-indexing-a-deep-dive-into-ivfflat-and-hnsw-techniques/
 */
-namespace Vector.Files.Chunking;
+namespace Vector.DataIngestion.Chunkers;
 
 public class CodeChunking(
     IFileParserFactory fileParserFactory,

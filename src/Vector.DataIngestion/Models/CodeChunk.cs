@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.VectorData;
 
-namespace Vector.Store.Models;
+namespace Vector.DataIngestion.Models;
 
 public sealed class CodeChunk
 {
