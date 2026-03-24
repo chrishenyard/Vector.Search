@@ -18,15 +18,15 @@ using Vector.DataIngestion.Stores;
 */
 namespace Vector.DataIngestion.Chunkers;
 
-public class CodeChunking(
+public class DocumentChunker(
     IFileParserFactory fileParserFactory,
     IOptions<VectorStoreSettings> settings,
-    ILogger<CodeChunking> logger) : IChunk
+    ILogger<DocumentChunker> logger) : IChunk
 
 {
     private readonly IFileParserFactory _fileParserFactory = fileParserFactory;
     private readonly VectorStoreSettings _settings = settings.Value;
-    private readonly ILogger<CodeChunking> _logger = logger;
+    private readonly ILogger<DocumentChunker> _logger = logger;
 
     public async Task ProcessChunksAsync(
         string writePath,

@@ -82,7 +82,7 @@ public static class ServiceExtensions
 
         services
             .AddSingleton<IFileParserFactory, FileParserFactory>()
-            .AddSingleton<IChunk, CodeChunking>()
+            .AddSingleton<IChunk, DocumentChunker>()
             .AddPostgresVectorStore(connectionString);
 
         services.AddScoped<IOllamaClientFactory, OllamaClientFactory>();

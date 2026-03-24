@@ -8,7 +8,7 @@ namespace Vector.Tools.Tests.Files;
 public class CodeChunkingTests(CodeChunkingFixture codeChunkingFixture) : IClassFixture<CodeChunkingFixture>
 {
     private readonly IFileParserFactory _fileParserFactory = codeChunkingFixture.FileParserFactory;
-    private readonly CodeChunking _codeChunking = codeChunkingFixture.CodeChunking;
+    private readonly DocumentChunker _codeChunking = codeChunkingFixture.CodeChunking;
 
     [Fact]
     public async Task GetChunksAsync_CreatesChunkFiles_ForLargeInput()

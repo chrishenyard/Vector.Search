@@ -9,7 +9,7 @@ namespace Vector.Search.Tests.Files;
 public class CodeChunkingFixture
 {
     public IFileParserFactory FileParserFactory { get; private set; }
-    public CodeChunking CodeChunking { get; private set; }
+    public DocumentChunker CodeChunking { get; private set; }
 
     public CodeChunkingFixture()
     {
@@ -29,9 +29,9 @@ public class CodeChunkingFixture
             MaxDegreeOfParallelism = 4
         });
 
-        CodeChunking = new CodeChunking(
+        CodeChunking = new DocumentChunker(
             FileParserFactory,
             options,
-            new LoggerFactory().CreateLogger<CodeChunking>());
+            new LoggerFactory().CreateLogger<DocumentChunker>());
     }
 }
