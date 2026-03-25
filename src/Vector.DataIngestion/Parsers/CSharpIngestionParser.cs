@@ -2,14 +2,14 @@ using Microsoft.Extensions.DataIngestion;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace Vector.DataIngestion.Chunkers;
+namespace Vector.DataIngestion.Parsers;
 
 /// <summary>
 /// Chunks a C# <see cref="IngestionDocument"/> into <see cref="IngestionChunk{T}"/> objects,
 /// splitting at block boundaries (lines ending with <c>}</c>, <c>};</c>, or <c>});</c>)
 /// once a minimum character threshold is reached.
 /// </summary>
-public class CSharpDocumentChunker(int minimumChunkSize, int lookAheadLineCount) : IngestionChunker<string>
+public class CSharpIngestionParser(int minimumChunkSize, int lookAheadLineCount) : IngestionChunker<string>
 {
     private static readonly string[] EndOfBlockMarkers = ["}", "};", "});"];
 

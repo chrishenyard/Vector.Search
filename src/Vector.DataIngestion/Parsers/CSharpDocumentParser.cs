@@ -1,6 +1,4 @@
-﻿using Vector.DataIngestion.Chunkers;
-
-namespace Vector.DataIngestion.Parsers;
+﻿namespace Vector.DataIngestion.Parsers;
 
 internal class CSharpDocumentParser : IFileParser
 {
@@ -12,12 +10,12 @@ internal class CSharpDocumentParser : IFileParser
         int lookAheadLineCount,
         CancellationToken cancellationToken)
     {
-        var csharpChunker = new CSharpDocumentChunker(minimumChunkSize, lookAheadLineCount);
+        var ingestionParser = new CSharpIngestionParser(minimumChunkSize, lookAheadLineCount);
 
         using var reader = new StreamReader(filePath);
         var cshartpDocumentReader = new CSharpDocumentReader();
         var document = cshartpDocumentReader.ReadAsync(reader.BaseStream, filePath, "text/x-csharp", cancellationToken).Result;
-        var ingestionChunk = csharpChunker.ProcessAsync(document, cancellationToken);
+        var ingestionChunk = ingestionParser.ProcessAsync(document, cancellationToken);
 
         var filename = Path.GetFileName(filePath);
 

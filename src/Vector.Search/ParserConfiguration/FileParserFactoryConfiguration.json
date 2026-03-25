@@ -1,7 +1,7 @@
 {
   "FileParsers": {
     "CSharp": {
-      "ParserType": "Vector.DataIngestion.Parsers.CSharpFileParser",
+      "ParserType": "Vector.DataIngestion.Parsers.CSharpDocumentParser",
       "FileExtension": ".cs"
     }
   }
