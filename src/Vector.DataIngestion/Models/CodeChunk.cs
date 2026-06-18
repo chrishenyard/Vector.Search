@@ -19,8 +19,7 @@ public sealed class CodeChunk
     [VectorStoreData(StorageName = "hash")]
     public string Hash { get; set; } = "";
 
-    [VectorStoreVector(
-        Dimensions: 768,
+    [VectorStoreVector(768,
         DistanceFunction = DistanceFunction.CosineSimilarity,
         IndexKind = IndexKind.Hnsw,
         StorageName = "embedding")]
